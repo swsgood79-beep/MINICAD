@@ -24,11 +24,11 @@ def payload(data):
     if values['radius']<=0:raise CADProblem(422,'반지름은 0보다 커야 합니다.')
     return SimpleNamespace(**values)
 
-def dispatch(path, data, key=None, filename='drawing.dxf'):
+def dispatch(path, data, key=None, filename='drawing.dxf', compact=False):
     global session, session_id
     if path=='/api/open-dwg-database':
         candidate=import_database(data,filename)
-        result=serialize(candidate)
+        result=serialize(candidate,compact=compact)
         if not result['entities']:raise CADProblem(422,'DWG 대체 읽기에서 표시 가능한 2D 객체를 찾지 못했습니다.')
         session,session_id=candidate,uuid4().hex
         return dict(result,document_id=session_id)
@@ -44,7 +44,7 @@ def dispatch(path, data, key=None, filename='drawing.dxf'):
             if path=='/api/open-dwg':
                 candidate.source_format='dwg'
                 candidate.warnings.append('DWG 시험 읽기: 일부 객체·폰트·배치가 누락되거나 달라질 수 있습니다. 치수는 원본 CAD와 대조하세요. 수정은 현재 탭에서만 유지되며, DWG/DXF 저장은 제공하지 않습니다.')
-            result=serialize(candidate)
+            result=serialize(candidate,compact=compact and candidate.source_format=='dwg')
         except Exception:
             raise CADProblem(422,'DXF를 읽지 못했습니다. 파일 형식과 손상 여부를 확인하세요.')
         finally:
@@ -57,7 +57,7 @@ def dispatch(path, data, key=None, filename='drawing.dxf'):
         return {'closed':True}
     if not session or key!=session_id:
         raise CADProblem(404,'열린 도면이 없습니다. DXF 파일을 열어주세요.')
-    if path=='/api/edit':return edit_document(session,payload(data))
+    if path=='/api/edit':return edit_document(session,payload(data),compact=compact and session.source_format=='dwg')
     if path.startswith('/api/history/'):
         action=path.rsplit('/',1)[-1]
         if action not in ('undo','redo'):raise CADProblem(400,'지원하지 않는 이력 작업입니다.')
@@ -66,7 +66,7 @@ def dispatch(path, data, key=None, filename='drawing.dxf'):
         target.append(session.doc)
         session.doc=source.pop()
         session.revision+=1
-        return serialize(session)
+        return serialize(session,compact=compact and session.source_format=='dwg')
     if path.startswith('/api/export/') and session.source_format=='dwg':
         raise CADProblem(400,'DWG는 화면 수정·측정·인쇄만 지원하며 파일 저장은 제공하지 않습니다.')
     if path=='/api/export/dxf':
@@ -74,10 +74,10 @@ def dispatch(path, data, key=None, filename='drawing.dxf'):
         return {'export':True}
     raise CADProblem(400,'무료 브라우저 버전에서는 DXF 기능만 지원합니다.')
 
-def dispatch_response(path, data_json, key, filename):
+def dispatch_response(path, data_json, key, filename, compact=False):
     """Return status and one encoded body; avoid decoding/re-encoding large scenes in JS."""
     try:
-        result=dispatch(path,json.loads(data_json),key,filename)
+        result=dispatch(path,json.loads(data_json),key,filename,compact=compact)
         status=200
     except CADProblem as exc:
         status,result=exc.status_code,{'detail':exc.detail}
@@ -100,5 +100,5 @@ def dispatch_binary(path, data_json, key, filename):
             data_json=source.read_bytes()
         finally:
             source.unlink(missing_ok=True)
-    status,body=dispatch_response(path,data_json,key,filename)
+    status,body=dispatch_response(path,data_json,key,filename,compact=True)
     return status,body.encode('utf-8')

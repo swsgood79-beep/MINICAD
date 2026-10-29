@@ -1,4 +1,5 @@
 import { readDwg } from "./dwg";
+import { SceneResponse } from "./scene-wire";
 /** The server UI and static Pages UI share controls; static mode never uploads files. */
 export const browserMode = import.meta.env.VITE_CAD_MODE === "browser";
 let worker: Worker | undefined;
@@ -23,7 +24,7 @@ function getWorker() {
       job.resolve(
         data.bytes
           ? new Response(data.bytes, { status: data.status })
-          : new Response(data.jsonBytes ?? JSON.stringify(data.data), {
+          : new SceneResponse(data.jsonBytes ?? JSON.stringify(data.data), {
               status: data.status,
               headers: { "Content-Type": "application/json" },
             }),

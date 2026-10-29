@@ -90,4 +90,65 @@ class BlockDisplayTest(unittest.TestCase):
         self.assertFalse(fast['preview'])
         for a,b in zip(fast['entities'],ref['entities']):self.assert_picture(a,b)
 
+    def count_wire(self,items,definitions):
+        return sum(self.count_wire(definitions[item['$block']],definitions) if '$block' in item
+                   else 1+self.count_wire(item.get('segments',[]),definitions) for item in items)
+
+    def test_compact_nested_references_retain_full_display_and_share_definitions(self):
+        doc,m=self.fixture()
+        for i in range(8):m.add_blockref('outer',(i*100,20))
+        s=Drawing(doc,'shared.dwg',source_format='dwg')
+        full=serialize(s);wire=serialize(s,compact=True)
+        self.assertFalse(wire['preview']);self.assertEqual(wire['unsupported'],full['unsupported'])
+        self.assertEqual(wire['warnings'],full['warnings'])
+        self.assertEqual(wire['total'],full['total'])
+        self.assertEqual(len({e['segments'][0]['$block'] for e in wire['entities']}),1)
+        self.assertEqual(self.count_wire(wire['entities'],wire['blockPictures']),self.count_wire(full['entities'],{}))
+        self.assertLess(len(str(wire)),len(str(full)))
+        self.assertFalse(doc.audit().has_errors)
+
+    def test_compact_budget_after_full_cache_still_marks_partial_objects(self):
+        doc,m=self.fixture();m.add_blockref('outer',(100,200));s=Drawing(doc,'budget.dwg',source_format='dwg')
+        full=serialize(s,compact=True)
+        s.display_limit=9;wire=serialize(s,compact=True);handles=set(s.display_partial_handles)
+        ref=serialize(s)
+        self.assertTrue(wire['preview']);self.assertEqual(wire['preview'],ref['preview'])
+        self.assertEqual(handles,s.display_partial_handles)
+        self.assertEqual(self.count_wire(wire['entities'],wire.get('blockPictures',{})),self.count_wire(ref['entities'],{}))
+        s.display_limit=2000000
+        self.assertEqual(serialize(s,compact=True),full)
+
+    def test_compact_nested_unsupported_and_projection_warnings_match(self):
+        doc=ezdxf.new();leaf=doc.blocks.new('leaf');outer=doc.blocks.new('outer')
+        leaf.add_line((0,0,0),(3,4,12));leaf.add_hatch()
+        outer.add_blockref('leaf',(10,20))
+        for i in range(3):doc.modelspace().add_blockref('outer',(i*100,0))
+        s=Drawing(doc,'warnings.dwg',source_format='dwg')
+        full=serialize(s);wire=serialize(s,compact=True)
+        self.assertEqual(wire['unsupported'],full['unsupported'])
+        self.assertEqual(wire['warnings'],full['warnings'])
+        self.assertEqual(self.count_wire(wire['entities'],wire.get('blockPictures',{})),self.count_wire(full['entities'],{}))
+
+    def test_compact_edits_and_history_reuse_pristine_block_definitions(self):
+        from cad_core import edit_document
+        from browser_runtime import payload
+        doc,m=self.fixture();m.add_blockref('outer',(100,200));line=m.add_line((0,0),(3,4))
+        s=Drawing(doc,'edit.dwg',source_format='dwg');original=serialize(s,compact=True)
+        edited=edit_document(s,payload({'op':'move','handle':line.dxf.handle,'dx':7,'dy':-3}),compact=True)
+        self.assertEqual(edited['blockPictures'],original['blockPictures'])
+        self.assertEqual(next(e for e in edited['entities'] if e['id']==line.dxf.handle)['a'],[7,-3])
+        self.assertEqual(line.dxf.start,(0,0,0))
+        s.doc=s.undo.pop()
+        self.assertEqual(serialize(s,compact=True)['entities'],original['entities'])
+
+    def test_compact_extreme_coordinates_use_existing_validation_path(self):
+        doc=ezdxf.new();leaf=doc.blocks.new('leaf');leaf.add_line((1e11,0),(1e11,10))
+        doc.modelspace().add_line((0,0),(3,4))
+        doc.modelspace().add_blockref('leaf',(0,0),dxfattribs={'xscale':20,'yscale':20})
+        s=Drawing(doc,'range.dwg',source_format='dwg')
+        full=serialize(s);wire=serialize(s,compact=True)
+        self.assertEqual(wire['unsupported'],full['unsupported'])
+        self.assertEqual(wire['entities'],full['entities'])
+        self.assertEqual(wire['warnings'],full['warnings'])
+
 if __name__=='__main__':unittest.main()
