@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Isolated DWG interpreter. Corresponding library source and license: /third-party/.
-import { LibreDwg, Dwg_Error, type DwgEntity } from "@mlightcad/libredwg-web";
+import {
+  LibreDwg,
+  Dwg_Error,
+  type DwgEntity,
+  type DwgDatabase,
+} from "@mlightcad/libredwg-web";
 const fields = [
   "type",
   "handle",
@@ -36,6 +41,31 @@ function compact(e: DwgEntity) {
     result: Record<string, unknown> = {};
   for (const key of fields) if (key in source) result[key] = source[key];
   return result;
+}
+function referencedBlocks(db: DwgDatabase) {
+  const blocks = new Map(
+    db.tables.BLOCK_RECORD.entries
+      .filter((b) => !/^\*(MODEL_SPACE|PAPER_SPACE)/i.test(b.name))
+      .map((b) => [b.name.toLowerCase(), b]),
+  );
+  const names = (entities: DwgEntity[]) =>
+    entities.flatMap((e) => {
+      const name = (e as unknown as { name?: string }).name;
+      return (e.type === "INSERT" || e.type === "DIMENSION") &&
+        typeof name === "string"
+        ? [name.toLowerCase()]
+        : [];
+    });
+  const pending = names(db.entities),
+    seen = new Set<string>();
+  while (pending.length) {
+    const name = pending.pop()!;
+    if (seen.has(name) || !blocks.has(name)) continue;
+    seen.add(name);
+    for (const child of names(blocks.get(name)!.entities))
+      if (!seen.has(child)) pending.push(child);
+  }
+  return [...seen].map((name) => blocks.get(name)!);
 }
 self.onmessage = async ({
   data,
@@ -101,7 +131,7 @@ self.onmessage = async ({
           tables: {
             LAYER: db.tables.LAYER,
             BLOCK_RECORD: {
-              entries: db.tables.BLOCK_RECORD.entries.map((b) => ({
+              entries: referencedBlocks(db).map((b) => ({
                 name: b.name,
                 basePoint: b.basePoint,
                 entities: b.entities.map(compact),

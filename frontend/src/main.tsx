@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   visibleEntities,
@@ -22,6 +22,8 @@ import { printDrawing } from "./printing";
 import { browserMode, cadFetch } from "./transport";
 type Drawing = {
   document_id?: string;
+  preview?: boolean;
+  history_limit?: number;
   source_format?: string;
   entities: Entity[];
   filename: string;
@@ -102,7 +104,10 @@ function App() {
     stage = useRef<HTMLDivElement>(null),
     drag = useRef<{ point: Point; view: View } | null>(null),
     busyRef = useRef(false);
-  const visible = visibleEntities(drawing?.entities ?? [], hidden);
+  const visible = useMemo(
+    () => visibleEntities(drawing?.entities ?? [], hidden),
+    [drawing, hidden],
+  );
   const fmt = (n: number) => n.toFixed(digits),
     unit = unitNames[drawing?.units ?? 0] ?? `단위 코드 ${drawing?.units}`;
   const point = (e: { clientX: number; clientY: number }): Point => {
@@ -226,6 +231,17 @@ function App() {
   }
   const endpoint = (path: string) =>
     `${path}?document_id=${encodeURIComponent(docId)}`;
+  function requestPrint() {
+    if (!drawing || busy) return;
+    if (
+      drawing.preview &&
+      !window.confirm(
+        "현재 도면은 일부만 표시된 미리보기입니다. 전체 도면 인쇄가 아닙니다. 표시 중인 부분만 인쇄할까요?",
+      )
+    )
+      return;
+    printDrawing(visible, drawing.filename, result, unit, drawing.warnings);
+  }
   async function edit(payload: object) {
     await run(async () => {
       const r = await response(
@@ -269,14 +285,7 @@ function App() {
     const key = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p" && drawing) {
         e.preventDefault();
-        if (!busy)
-          printDrawing(
-            visible,
-            drawing.filename,
-            result,
-            unit,
-            drawing.warnings,
-          );
+        if (!busy) requestPrint();
         return;
       }
       if ((e.target as HTMLElement).matches("input,textarea,select")) return;
@@ -353,6 +362,7 @@ function App() {
         await cadFetch(endpoint("/api/document"), { method: "DELETE" });
       setDrawing(d);
       setDocId(d.document_id!);
+      changeMode("select");
       const hidden = new Set(
         d.layers.filter((l) => !l.visible).map((l) => l.name),
       );
@@ -420,6 +430,11 @@ function App() {
       return;
     }
     if (mode === "length") {
+      if (hit?.partial) {
+        setResult("전체 길이 측정 불가");
+        setMessage("이 객체는 일부만 표시되어 전체 길이를 측정할 수 없습니다.");
+        return;
+      }
       if (
         hit &&
         (hit.type === "LWPOLYLINE" ||
@@ -557,15 +572,7 @@ function App() {
         )}
         <button
           disabled={!drawing || !visible.length || busy}
-          onClick={() =>
-            printDrawing(
-              visible,
-              drawing!.filename,
-              result,
-              unit,
-              drawing!.warnings,
-            )
-          }
+          onClick={() => requestPrint()}
         >
           인쇄 / PDF
         </button>
@@ -620,7 +627,12 @@ function App() {
             <button
               key={id}
               className={mode === id ? "active" : ""}
-              disabled={busy}
+              disabled={
+                busy ||
+                Boolean(
+                  drawing?.preview && ["line", "circle", "copy"].includes(id),
+                )
+              }
               onClick={() => changeMode(id)}
             >
               {title}
@@ -645,6 +657,12 @@ function App() {
           </small>
         </nav>
         <div className="stage" ref={stage}>
+          {drawing?.preview && (
+            <div className="preview-banner">
+              부분 미리보기 · 도면 일부만 표시합니다. 표시된 범위만 측정할 수
+              있으며 전체 도면 인쇄가 아닙니다.
+            </div>
+          )}
           {openError && (
             <div className="open-error" role="alert">
               <strong>도면을 열지 못했습니다</strong>
@@ -706,6 +724,12 @@ function App() {
         </div>
         <aside>
           <h2>도면 정보</h2>
+          {drawing?.preview && (
+            <p className="warning">
+              부분 미리보기 · 전체 도면이 아닙니다. 실행 취소 최대{" "}
+              {drawing.history_limit ?? 30}회.
+            </p>
+          )}
           <p>
             {drawing
               ? `${drawing.total}개 객체 · 표시 ${visible.length}개`

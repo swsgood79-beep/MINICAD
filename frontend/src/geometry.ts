@@ -11,6 +11,7 @@ export type Entity = {
   end?: number;
   segments?: Entity[];
   closed?: boolean;
+  partial?: boolean;
   text?: string;
   height?: number;
   rotation?: number;

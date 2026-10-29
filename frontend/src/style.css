@@ -215,3 +215,18 @@ input[type="checkbox"] {
 .open-error button {
   background: #633b42;
 }
+
+.preview-banner {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 10px;
+  right: 10px;
+  padding: 8px 12px;
+  background: #594a20ee;
+  color: #ffeba9;
+  border: 1px solid #ad8b3c;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+}

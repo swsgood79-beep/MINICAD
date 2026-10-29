@@ -7,6 +7,17 @@ import ezdxf
 HISTORY = 30
 EDITABLE = {'LINE', 'CIRCLE', 'ARC', 'LWPOLYLINE', 'POLYLINE', 'POINT'}
 
+class DisplayLimit(ValueError):
+    pass
+
+class RenderBudget:
+    def __init__(self,limit):self.remaining=limit;self.truncated=False
+    def consume(self):
+        if self.remaining<=0:
+            self.truncated=True
+            raise DisplayLimit('화면 표시 한도')
+        self.remaining-=1
+
 class CADProblem(ValueError):
     def __init__(self, status_code, detail):
         self.status_code, self.detail = status_code, detail
@@ -23,6 +34,11 @@ class Drawing:
     source_format: str = 'dxf'
     import_unsupported: dict = field(default_factory=dict)
     unrendered_roots: int = 0
+    preview: bool = False
+    display_limit: int = 120000
+    history_limit: int = HISTORY
+    display_partial_handles: set = field(default_factory=set)
+    view_limited: bool = False
 
 def planar(e):
     if e.dxftype() == 'POLYLINE' and not e.is_2d_polyline:
@@ -30,7 +46,8 @@ def planar(e):
     normal = e.dxf.get('extrusion', (0, 0, 1))
     return all(abs(a-b) < 1e-10 for a,b in zip(normal, (0,0,1)))
 
-def primitive(e, depth=0, ancestors=()):
+def primitive(e, depth=0, ancestors=(), budget=None):
+    if budget is not None:budget.consume()
     d = e.dxf
     k = e.dxftype()
     def xy(p):
@@ -52,7 +69,14 @@ def primitive(e, depth=0, ancestors=()):
         if k == 'ARC':
             item.update(start=float(d.start_angle), end=float(d.end_angle))
     elif k in ('LWPOLYLINE', 'POLYLINE'):
-        item.update(segments=[primitive(v) for v in e.virtual_entities()], closed=bool(e.is_closed if k == 'POLYLINE' else e.closed))
+        segments=[]
+        for v in e.virtual_entities():
+            try:segments.append(primitive(v,budget=budget))
+            except DisplayLimit:
+                if not segments:raise
+                item['partial']=True
+                break
+        item.update(segments=segments, closed=bool(e.is_closed if k == 'POLYLINE' else e.closed))
     elif k in ('INSERT', 'DIMENSION'):
         name=d.get('name', '') if k=='INSERT' else ''
         if depth>=8 or name and name in ancestors:
@@ -61,7 +85,13 @@ def primitive(e, depth=0, ancestors=()):
         omitted={}
         for child in e.virtual_entities():
             try:
-                parts.append(primitive(child,depth+1,ancestors+((name,) if name else ())))
+                part=primitive(child,depth+1,ancestors+((name,) if name else ()),budget)
+                parts.append(part)
+                if part.get('partial'):item['partial']=True
+            except DisplayLimit:
+                if not parts:raise
+                item['partial']=True
+                break
             except (ValueError,TypeError,AttributeError,ezdxf.DXFError):
                 kind=child.dxftype()
                 omitted[kind]=omitted.get(kind,0)+1
@@ -78,34 +108,44 @@ def primitive(e, depth=0, ancestors=()):
 
 def serialize(s: Drawing):
     entities, unsupported = [], dict(s.import_unsupported)
-    truncated = False
+    truncated = s.preview
+    budget=RenderBudget(s.display_limit)
+    s.display_partial_handles=set()
     for i, e in enumerate(s.doc.modelspace()):
         if i >= 120000:
             truncated = True
             break
         try:
-            item=primitive(e)
+            item=primitive(e,budget=budget)
             entities.append(item)
+            if item.get('partial'):s.display_partial_handles.add(item['id'])
             def omissions(value):
                 for kind,count in value.get('omitted',{}).items():
                     unsupported[kind]=unsupported.get(kind,0)+count
                 for child in value.get('segments',[]):omissions(child)
             omissions(item)
+        except DisplayLimit:
+            truncated=True
+            break
         except (ValueError, TypeError, AttributeError, ezdxf.DXFError):
             k = e.dxftype()
             unsupported[k] = unsupported.get(k, 0)+1
+    truncated=truncated or budget.truncated
+    s.view_limited=truncated
     warnings = list(s.warnings)
     if unsupported:
         warnings.append('DWG 미지원 객체가 화면에서 생략되었습니다. 화면만으로 원본 전체를 판단하지 마세요. 원본 DWG 파일은 변경하지 않습니다.' if s.source_format=='dwg' else '미표시 객체는 원본 DXF 문서에 유지됩니다. 화면만으로 도면 전체를 판단하지 마세요.')
     if truncated:
-        warnings.append('화면 표시 한도 120,000개를 초과했습니다. 나머지 객체도 문서에는 보존됩니다.')
+        warnings.insert(0,f'부분 미리보기: 화면 표시·처리 한도에 따라 도면 일부만 보입니다(표시 요소 예산 {s.display_limit:,}개, 중첩 객체 포함). 전체 도면 인쇄가 아니며, 부분 표시된 폴리라인의 전체 길이는 측정할 수 없습니다.')
     return dict(entities=entities, unsupported=unsupported, total=len(s.doc.modelspace())+s.unrendered_roots, units=int(s.doc.units),
-                filename=s.name, source_format=s.source_format, layers=[{'name':l.dxf.name,'visible':not l.is_off() and not l.is_frozen(),'locked':l.is_locked()} for l in s.doc.layers],
+                filename=s.name, source_format=s.source_format, preview=truncated, history_limit=s.history_limit, layers=[{'name':l.dxf.name,'visible':not l.is_off() and not l.is_frozen(),'locked':l.is_locked()} for l in s.doc.layers],
                 warnings=warnings, truncated=truncated, revision=s.revision, can_undo=bool(s.undo), can_redo=bool(s.redo))
 
 def edit_document(s, payload):
     if payload.revision is not None and payload.revision != s.revision:
         raise CADProblem(409, '도면 버전이 변경되었습니다. 다시 열어주세요.')
+    if s.view_limited and payload.op in ('add_line','add_circle','copy'):
+        raise CADProblem(400,'부분 미리보기에서는 객체 추가·복사를 지원하지 않습니다. 표시된 개별 객체의 이동·삭제·좌표 수정은 가능합니다.')
     candidate = deepcopy(s.doc)
     msp = candidate.modelspace()
     try:
@@ -126,6 +166,7 @@ def edit_document(s, payload):
             if not handles:
                 raise ValueError('먼저 객체를 선택하세요.')
             for handle in handles:
+                if handle in s.display_partial_handles:raise ValueError('일부만 표시된 객체는 수정할 수 없습니다. 개별 객체를 선택하세요.')
                 e = candidate.entitydb.get(handle)
                 if e is None or not e.is_alive or e not in msp:
                     raise ValueError('객체를 찾지 못했습니다.')
@@ -155,7 +196,7 @@ def edit_document(s, payload):
     except (ValueError, ezdxf.DXFError) as exc:
         raise CADProblem(400, str(exc))
     s.undo.append(s.doc)
-    s.undo = s.undo[-HISTORY:]
+    s.undo = s.undo[-s.history_limit:]
     s.redo.clear()
     s.doc = candidate
     s.revision += 1
