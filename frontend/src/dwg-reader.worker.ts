@@ -197,7 +197,10 @@ self.onmessage = async ({
         (_key, value) => (typeof value === "bigint" ? value.toString() : value),
       );
       // Do not reuse or free an uncertain decoder heap: the owner terminates this worker.
-      (self as unknown as Worker).postMessage({ databaseJSON });
+      const databaseBytes = new TextEncoder().encode(databaseJSON);
+      (self as unknown as Worker).postMessage({ databaseBytes }, [
+        databaseBytes.buffer,
+      ]);
     } else {
       stage = "dxf";
       const bytes = reader.dwg_write_dxf(data.file);

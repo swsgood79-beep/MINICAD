@@ -6,11 +6,14 @@ from weakref import WeakKeyDictionary
 import ezdxf
 
 HISTORY = 30
+BLOCK_TEMPLATE_LIMIT = 40000
+BLOCK_CACHE_LIMIT = 200000
 EDITABLE = {'LINE', 'CIRCLE', 'ARC', 'LWPOLYLINE', 'POLYLINE', 'POINT'}
 # DWG screen documents are immutable between committed edits/history switches.
 # Keep display data outside the document so deepcopy never copies these trees.
 # History documents share unchanged root pictures and disappear through weak keys.
 _dwg_pictures = WeakKeyDictionary()
+_block_pictures = WeakKeyDictionary()
 
 class DisplayLimit(ValueError):
     pass
@@ -50,6 +53,77 @@ def planar(e):
         return False
     normal = e.dxf.get('extrusion', (0, 0, 1))
     return abs(normal[0])<1e-10 and abs(normal[1])<1e-10 and abs(abs(normal[2])-1)<1e-10
+
+def block_picture(e, depth, ancestors, budget):
+    """Reuse local 2D geometry; keep ezdxf's general transform for complex blocks.
+
+    Only a planar similarity transform is eligible. Mirrored text and rescaled
+    sampled curves use the established ezdxf transform path.
+    The ezdxf document stays intact for editing/export.
+    """
+    if e.doc is None or not planar(e) or e.dxf.extrusion.x or e.dxf.extrusion.y:return None
+    sx,sy=e.dxf.xscale,e.dxf.yscale
+    if abs(sx)!=abs(sy) or not sx:return None
+    name=e.dxf.name
+    key=(name,depth,ancestors)
+    cache=_block_pictures.setdefault(e.doc,{'_cost':0})
+    if key not in cache:
+        if len(cache)>=8192 or cache['_cost']>=BLOCK_CACHE_LIMIT:return None
+        layout=e.block()
+        kinds={'LINE','POINT','ARC','CIRCLE','LWPOLYLINE','POLYLINE','SOLID','TRACE','TEXT','MTEXT','INSERT','DIMENSION','SPLINE','ELLIPSE','LEADER'}
+        if layout is None or any(child.dxftype() not in kinds for child in layout):
+            cache[key]=None
+        else:
+            limit=min(budget.remaining if budget else BLOCK_TEMPLATE_LIMIT,
+                      BLOCK_TEMPLATE_LIMIT,BLOCK_CACHE_LIMIT-cache['_cost'])
+            local_budget=RenderBudget(limit)
+            try:
+                parts=[primitive(child,depth+1,ancestors+(name,),local_budget) for child in layout]
+                if local_budget.truncated:return None
+                cost=limit-local_budget.remaining
+                if cost>BLOCK_CACHE_LIMIT-cache['_cost'] or len(cache)>=8192:return None
+                cache[key]=(parts,cost)
+                cache['_cost']+=cost
+            except (ValueError,TypeError,AttributeError,ezdxf.DXFError):
+                # A tight display budget must never permanently poison this cache.
+                return None
+    template=cache[key]
+    if template is None:return None
+    parts,cost=template
+    if budget and cost>budget.remaining:return None
+    m=e.matrix44();u=m.transform_direction((1,0,0));v=m.transform_direction((0,1,0));t=m.transform((0,0,0))
+    if abs(u.z)>1e-10 or abs(v.z)>1e-10:return None
+    a,b,c,d,tx,ty=u.x,u.y,v.x,v.y,t.x,t.y
+    scale=math.hypot(a,b);mirror=a*d-b*c<0
+    def compatible(item):
+        if item.get('approximate') and not math.isclose(scale,1,rel_tol=1e-12):return False
+        if item.get('projected') and abs(e.dxf.zscale)!=1:return False
+        if item.get('text') is not None and (mirror or e.dxf.extrusion.z<0):return False
+        return all(compatible(child) for child in item.get('segments',[]))
+    if not all(compatible(part) for part in parts):return None
+    def xy(p):
+        q=[a*p[0]+c*p[1]+tx,b*p[0]+d*p[1]+ty]
+        if not all(math.isfinite(n) and abs(n)<1e12 for n in q):raise ValueError('좌표 범위 초과')
+        return q
+    def angle(value):
+        r=math.radians(value);x,y=math.cos(r),math.sin(r)
+        return math.degrees(math.atan2(b*x+d*y,a*x+c*y))%360
+    def transform(item):
+        result={**item,'id':None}
+        for key in ('a','b','c'):
+            if key in item:result[key]=xy(item[key])
+        if 'r' in item:result['r']=item['r']*scale
+        if item['type']=='ARC':
+            start,end=angle(item['start']),angle(item['end'])
+            result.update(start=end if mirror else start,end=start if mirror else end)
+        if item['type'] in ('TEXT','MTEXT'):
+            result.update(rotation=angle(item['rotation']),height=item['height']*scale)
+        if 'pts' in item:result['pts']=[xy(p) for p in item['pts']]
+        if 'segments' in item:result['segments']=[transform(child) for child in item['segments']]
+        return result
+    result=[transform(part) for part in parts]
+    if budget:budget.remaining-=cost
+    return result
 
 def primitive(e, depth=0, ancestors=(), budget=None):
     if budget is not None:budget.consume()
@@ -99,6 +173,11 @@ def primitive(e, depth=0, ancestors=(), budget=None):
     elif k in ('INSERT','DIMENSION'):
         name=d.get('name','') if k=='INSERT' else ''
         if depth>=16 or name and name in ancestors:raise ValueError('블록 중첩 한도 또는 순환 참조')
+        if k=='INSERT':
+            fast=block_picture(e,depth,ancestors,budget)
+            if fast:
+                item.update(segments=fast,display_only=True,omitted={})
+                return item
         parts=[];omitted={}
         children=e.virtual_block_content if k=='DIMENSION' and e.is_virtual and e.virtual_block_content is not None else e.virtual_entities()
         for child in children:

@@ -24,12 +24,9 @@ function attempt(file: ArrayBuffer, mode: DwgMode): Promise<DwgResult> {
       if (data.error) finish(new DwgReadError(data.error, data.code));
       else if (data.bytes instanceof Uint8Array)
         finish(undefined, { file: data.bytes.buffer as ArrayBuffer });
-      else if (typeof data.databaseJSON === "string") {
-        try {
-          finish(undefined, { database: JSON.parse(data.databaseJSON) });
-        } catch {
-          finish(new DwgReadError("DWG 대체 읽기 결과가 올바르지 않습니다."));
-        }
+      else if (data.databaseBytes instanceof Uint8Array) {
+        // Transfer the encoded database intact until Python consumes it.
+        finish(undefined, { database: data.databaseBytes });
       } else finish(new DwgReadError("DWG 해석 결과를 읽지 못했습니다."));
     };
     w.onerror = () =>

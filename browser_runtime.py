@@ -74,10 +74,31 @@ def dispatch(path, data, key=None, filename='drawing.dxf'):
         return {'export':True}
     raise CADProblem(400,'무료 브라우저 버전에서는 DXF 기능만 지원합니다.')
 
-def dispatch_json(path, data_json, key, filename):
+def dispatch_response(path, data_json, key, filename):
+    """Return status and one encoded body; avoid decoding/re-encoding large scenes in JS."""
     try:
-        return json.dumps({'status':200,'data':dispatch(path,json.loads(data_json),key,filename)},ensure_ascii=False,allow_nan=False)
+        result=dispatch(path,json.loads(data_json),key,filename)
+        status=200
     except CADProblem as exc:
-        return json.dumps({'status':exc.status_code,'data':{'detail':exc.detail}},ensure_ascii=False)
+        status,result=exc.status_code,{'detail':exc.detail}
     except Exception:
-        return json.dumps({'status':422,'data':{'detail':'도면 처리에 실패했습니다. 파일과 입력값을 확인하세요.'}},ensure_ascii=False)
+        status,result=422,{'detail':'도면 처리에 실패했습니다. 파일과 입력값을 확인하세요.'}
+    try:
+        return status,json.dumps(result,ensure_ascii=False,allow_nan=False,separators=(',',':'))
+    except (ValueError,TypeError):
+        return 422,json.dumps({'detail':'도면 처리에 실패했습니다. 파일과 입력값을 확인하세요.'},ensure_ascii=False)
+
+def dispatch_json(path, data_json, key, filename):
+    status,body=dispatch_response(path,data_json,key,filename)
+    return '{"status":'+str(status)+',"data":'+body+'}'
+
+def dispatch_binary(path, data_json, key, filename):
+    """Copy UTF-8 buffers across the WASM boundary, rather than giant JS strings."""
+    if path=='/api/open-dwg-database':
+        source=Path('/tmp/minicad-database.json')
+        try:
+            data_json=source.read_bytes()
+        finally:
+            source.unlink(missing_ok=True)
+    status,body=dispatch_response(path,data_json,key,filename)
+    return status,body.encode('utf-8')

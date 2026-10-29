@@ -21,7 +21,9 @@ test("WASM trap retries once using an intact copy after transfer", async () => {
       throw new DwgReadError("memory access out of bounds", "WASM_TRAP");
     }
     assert.deepEqual(Array.from(new Uint8Array(file)), [1, 2, 3, 4]);
-    return { database: { entities: [] } };
+    return {
+      database: new TextEncoder().encode(JSON.stringify({ entities: [] })),
+    };
   });
   assert.deepEqual(calls, ["dxf", "database"]);
   assert.ok(r.database);

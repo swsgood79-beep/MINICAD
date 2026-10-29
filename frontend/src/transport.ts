@@ -23,7 +23,7 @@ function getWorker() {
       job.resolve(
         data.bytes
           ? new Response(data.bytes, { status: data.status })
-          : new Response(JSON.stringify(data.data), {
+          : new Response(data.jsonBytes ?? JSON.stringify(data.data), {
               status: data.status,
               headers: { "Content-Type": "application/json" },
             }),
@@ -40,6 +40,8 @@ function getWorker() {
       worker?.terminate();
       worker = undefined;
     };
+    // Preparation runs while the isolated DWG decoder is busy in its own worker.
+    worker.postMessage({ warmup: true });
   }
   return worker;
 }
@@ -69,7 +71,14 @@ export async function cadFetch(
   let bytes = file instanceof File ? await file.arrayBuffer() : undefined;
   const isDwg =
     file instanceof File && file.name.toLowerCase().endsWith(".dwg");
-  let database: unknown;
+  let database: Uint8Array | undefined;
+  if (
+    !isDwg ||
+    (bytes &&
+      bytes.byteLength >= 128 &&
+      /^AC\d{4}$/.test(new TextDecoder("ascii").decode(bytes.slice(0, 6))))
+  )
+    getWorker();
   if (isDwg) {
     try {
       const decoded = await readDwg(bytes!);
@@ -98,13 +107,12 @@ export async function cadFetch(
     documentId: url.searchParams.get("document_id"),
     filename: file instanceof File ? file.name : undefined,
     file: bytes,
-    body:
-      database ??
-      (typeof options.body === "string" ? JSON.parse(options.body) : {}),
+    databaseBytes: database,
+    body: typeof options.body === "string" ? JSON.parse(options.body) : {},
   };
   const w = getWorker();
   return new Promise<Response>((resolve, reject) => {
     pending.set(id, { resolve, reject });
-    w.postMessage(job, bytes ? [bytes] : []);
+    w.postMessage(job, bytes ? [bytes] : database ? [database.buffer] : []);
   });
 }

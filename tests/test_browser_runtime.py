@@ -68,4 +68,45 @@ class BrowserRuntimeTest(unittest.TestCase):
         self.assertEqual(runtime.session_id,self.key)
         self.assertEqual(runtime.session.doc.entitydb[self.ids[0]].dxftype(),'LINE')
 
+    def test_direct_response_body_matches_legacy_envelope_and_unicode(self):
+        runtime.session.name='한글 <도면>.dxf'
+        status,body=runtime.dispatch_response('/api/history/invalid','{}',self.key,'')
+        self.assertEqual(status,400)
+        legacy=json.loads(runtime.dispatch_json('/api/history/invalid','{}',self.key,''))
+        self.assertEqual(json.loads(body),legacy['data'])
+        # Full scene bodies remain strict JSON and include original Unicode.
+        with patch('browser_runtime.dispatch',return_value={'filename':'한글 도면.dwg','entities':[]}):
+            status,body=runtime.dispatch_response('/api/open','{}',self.key,'')
+        self.assertEqual(status,200)
+        self.assertIn('한글 도면',body)
+        self.assertEqual(json.loads(body)['entities'],[])
+
+    def test_direct_response_bad_json_preserves_open_document(self):
+        status,body=runtime.dispatch_response('/api/open-dwg-database','{broken',None,'bad.dwg')
+        self.assertEqual(status,422)
+        self.assertIn('detail',json.loads(body))
+        self.assertEqual(runtime.session_id,self.key)
+        with patch('browser_runtime.dispatch',return_value={'invalid':float('nan')}):
+            status,body=runtime.dispatch_response('/api/open','{}',self.key,'')
+        self.assertEqual(status,422)
+        self.assertNotIn('NaN',body)
+
+    def test_binary_database_request_and_utf8_response_cleanup(self):
+        data=(Path(__file__).parent/'fixtures/sample_database.json').read_bytes()
+        with patch('browser_runtime.Path',return_value=self.source):
+            self.source.write_bytes(data)
+            status,body=runtime.dispatch_binary('/api/open-dwg-database','{}',None,'한글 도면.dwg')
+            self.assertEqual(status,200)
+            self.assertIsInstance(body,bytes)
+            result=json.loads(body)
+            self.assertEqual(result['filename'],'한글 도면.dwg')
+            self.assertEqual(len(result['entities']),6)
+            self.assertFalse(self.source.exists())
+            key=runtime.session_id
+            self.source.write_bytes(b'{broken')
+            status,body=runtime.dispatch_binary('/api/open-dwg-database','{}',None,'bad.dwg')
+            self.assertEqual(status,422)
+            self.assertFalse(self.source.exists())
+            self.assertEqual(runtime.session_id,key)
+
 if __name__=='__main__':unittest.main()

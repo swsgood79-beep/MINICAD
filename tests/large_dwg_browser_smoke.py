@@ -20,13 +20,14 @@ def main():
             shim="""
 const send=globalThis.postMessage.bind(globalThis);
 globalThis.postMessage=(message,transfer)=>{
- if(typeof message.databaseJSON==='string'){
-   const db=JSON.parse(message.databaseJSON);
+ if(message.databaseBytes instanceof Uint8Array){
+   const db=JSON.parse(new TextDecoder().decode(message.databaseBytes));
    const line=db.entities.find(e=>e.type==='LINE'&&e.startPoint.y===e.endPoint.y);
    db.entities=Array.from({length:120001},()=>line);
    db.entities[120000]={...line,startPoint:{x:50000,y:10000,z:0},endPoint:{x:50100,y:10000,z:0}};
    db.tables.BLOCK_RECORD={entries:[]};
-   message.databaseJSON=JSON.stringify(db);
+   message.databaseBytes=new TextEncoder().encode(JSON.stringify(db));
+   transfer=[message.databaseBytes.buffer];
  }
  send(message,transfer);
 };

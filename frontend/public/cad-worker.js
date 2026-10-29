@@ -45,27 +45,47 @@ self.onmessage = ({ data: job }) => {
   queue = queue.then(async () => {
     try {
       const py = await initialize();
+      if (job.warmup) return;
       if (job.file)
         py.FS.writeFile("/tmp/minicad-input.dxf", new Uint8Array(job.file));
-      const dispatch = py.runPython("browser_runtime.dispatch_json");
-      let result;
+      if (job.databaseBytes)
+        py.FS.writeFile("/tmp/minicad-database.json", job.databaseBytes);
+      const dispatch = py.runPython("browser_runtime.dispatch_binary");
+      let status, jsonBytes;
       try {
-        result = JSON.parse(
-          dispatch(
-            job.path,
-            JSON.stringify(job.body ?? {}),
-            job.documentId ?? null,
-            job.filename ?? "drawing.dxf",
-          ),
+        const result = dispatch(
+          job.path,
+          typeof job.body === "string"
+            ? job.body
+            : JSON.stringify(job.body ?? {}),
+          job.documentId ?? null,
+          job.filename ?? "drawing.dxf",
         );
+        try {
+          status = result.get(0);
+          const encoded = result.get(1);
+          try {
+            const view = encoded.getBuffer("u8");
+            try {
+              jsonBytes = view.data.slice();
+            } finally {
+              view.release();
+            }
+          } finally {
+            encoded.destroy();
+          }
+        } finally {
+          result.destroy();
+        }
       } finally {
         dispatch.destroy();
       }
-      if (result.status === 200 && result.data.export) {
+      if (status === 200 && job.path === "/api/export/dxf") {
         const bytes = py.FS.readFile("/tmp/minicad-output.dxf");
         py.FS.unlink("/tmp/minicad-output.dxf");
-        self.postMessage({ id: job.id, status: 200, bytes }, [bytes.buffer]);
-      } else self.postMessage({ id: job.id, ...result });
+        self.postMessage({ id: job.id, status, bytes }, [bytes.buffer]);
+      } else
+        self.postMessage({ id: job.id, status, jsonBytes }, [jsonBytes.buffer]);
     } catch (error) {
       self.postMessage({
         id: job.id,

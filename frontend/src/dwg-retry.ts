@@ -1,4 +1,4 @@
-export type DwgResult = { file?: ArrayBuffer; database?: unknown };
+export type DwgResult = { file?: ArrayBuffer; database?: Uint8Array };
 export type DwgMode = "dxf" | "database";
 export class DwgReadError extends Error {
   constructor(
