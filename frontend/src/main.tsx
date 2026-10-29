@@ -19,6 +19,7 @@ import {
 } from "./geometry";
 import "./style.css";
 import { printDrawing } from "./printing";
+import { buildScene, paintScene } from "./scene-renderer";
 import { browserMode, cadFetch } from "./transport";
 type Drawing = {
   document_id?: string;
@@ -27,7 +28,7 @@ type Drawing = {
   source_format?: string;
   entities: Entity[];
   filename: string;
-  layers: { name: string; visible: boolean; locked: boolean }[];
+  layers: { name: string; visible: boolean; locked: boolean; color?: string }[];
   units: number;
   total: number;
   unsupported: Record<string, number>;
@@ -108,6 +109,11 @@ function App() {
     () => visibleEntities(drawing?.entities ?? [], hidden),
     [drawing, hidden],
   );
+  const scene = useMemo(
+    () => buildScene(visible, drawing?.layers ?? [], selected),
+    [visible, drawing?.layers, selected],
+  );
+  const baseCanvas = useRef<HTMLCanvasElement | null>(null);
   const fmt = (n: number) => n.toFixed(digits),
     unit = unitNames[drawing?.units ?? 0] ?? `단위 코드 ${drawing?.units}`;
   const point = (e: { clientX: number; clientY: number }): Point => {
@@ -127,11 +133,15 @@ function App() {
   }, []);
   useEffect(() => {
     const c = canvas.current!,
-      ctx = c.getContext("2d")!,
-      dpr = window.devicePixelRatio || 1;
-    const [w, h] = size;
+      dpr = window.devicePixelRatio || 1,
+      [w, h] = size;
     c.width = w * dpr;
     c.height = h * dpr;
+    const base = baseCanvas.current ?? document.createElement("canvas");
+    baseCanvas.current = base;
+    base.width = c.width;
+    base.height = c.height;
+    const ctx = base.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = "#0c141e";
     ctx.fillRect(0, 0, w, h);
@@ -154,41 +164,20 @@ function App() {
       ctx.lineTo(w, y);
       ctx.stroke();
     }
-    const paint = (e: Entity, highlight: boolean) => {
-      if (e.segments) {
-        e.segments.forEach((part) => paint(part, highlight));
-        return;
-      }
-      ctx.strokeStyle = highlight ? "#ffcb6b" : "#74dbe8";
-      ctx.fillStyle = ctx.strokeStyle;
-      ctx.lineWidth = highlight ? 2.5 : 1.2;
-      if (e.type === "TEXT" || e.type === "MTEXT") {
-        const p = toScreen(e.c!, view);
-        ctx.save();
-        ctx.translate(...p);
-        ctx.rotate((-(e.rotation ?? 0) * Math.PI) / 180);
-        ctx.font = `${Math.max(1, (e.height ?? 1) * view.scale)}px sans-serif`;
-        for (const [i, line] of (e.text ?? "").split("\n").entries())
-          ctx.fillText(line, 0, i * (e.height ?? 1) * view.scale * 1.3);
-        ctx.restore();
-        return;
-      }
-      for (const path of paths(e)) {
-        if (!path.length) continue;
-        ctx.beginPath();
-        const first = toScreen(path[0], view);
-        ctx.moveTo(...first);
-        if (path.length === 1) {
-          ctx.arc(...first, 3, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          for (let i = 1; i < path.length; i++)
-            ctx.lineTo(...toScreen(path[i], view));
-          ctx.stroke();
-        }
-      }
-    };
-    visible.forEach((e) => paint(e, selected.includes(e.id)));
+    const drawn = paintScene(ctx, scene, view, w, h, dpr);
+    c.dataset.sceneElements = String(scene.elements);
+    c.dataset.visibleTiles = String(drawn);
+    c.dataset.sceneTiles = String(scene.tiles.length);
+    c.dataset.sceneBounds = JSON.stringify(scene.bounds);
+  }, [scene, view, size]);
+  useEffect(() => {
+    const c = canvas.current!,
+      ctx = c.getContext("2d")!,
+      dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, c.width, c.height);
+    if (baseCanvas.current) ctx.drawImage(baseCanvas.current, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (pending) {
       ctx.strokeStyle = "#facc15";
       ctx.setLineDash([5, 5]);
@@ -206,7 +195,7 @@ function App() {
       ctx.fillStyle = "#6bff99";
       ctx.fillText(snapped.kind, x + 9, y - 9);
     }
-  }, [drawing, hidden, selected, view, size, pending, cursor, snapped]);
+  }, [scene, view, size, pending, cursor, snapped]);
   async function response(r: Response) {
     if (!r.ok) {
       const j = await r.json();
@@ -367,13 +356,7 @@ function App() {
         d.layers.filter((l) => !l.visible).map((l) => l.name),
       );
       setHidden(hidden);
-      setView(
-        fit(
-          d.entities.filter((e) => !hidden.has(e.layer)),
-          size[0],
-          size[1],
-        ),
-      );
+      setView(fit(visibleEntities(d.entities, hidden), size[0], size[1]));
       setSelected([]);
       setPending(null);
       setResult("—");
@@ -443,7 +426,9 @@ function App() {
           hit.type === "ARC" ||
           hit.type === "CIRCLE")
       )
-        setResult(`길이 ${fmt(length(hit))} ${unit}`);
+        setResult(
+          `${hit.projected ? "XY 투영 길이" : "길이"} ${fmt(length(hit))} ${unit}`,
+        );
       return;
     }
     if (mode === "angle") {
@@ -869,8 +854,9 @@ function Properties({
   busy: boolean;
   submit: (p: object) => Promise<void>;
 }) {
-  const initial: Record<string, number> | null =
-    e.type === "LINE"
+  const initial: Record<string, number> | null = e.display_only
+    ? null
+    : e.type === "LINE"
       ? { x1: e.a![0], y1: e.a![1], x2: e.b![0], y2: e.b![1] }
       : e.type === "CIRCLE"
         ? { x1: e.c![0], y1: e.c![1], radius: e.r! }

@@ -58,11 +58,13 @@ class APITest(unittest.TestCase):
         self.assertEqual(entities[self.ids[3]]['segments'][0]['type'],'ARC')
         self.assertEqual(entities[self.ids[5]]['text'],'테스트')
         self.assertEqual(entities[self.ids[4]]['type'],'POLYLINE')
-        self.assertIn('SPLINE',self.data['unsupported'])
+        self.assertTrue(entities[self.ids[6]]['pts'])
+        self.assertTrue(entities[self.ids[6]]['approximate'])
         self.assertNotIn('DIMENSION',self.data['unsupported'])
         self.assertTrue(any(e['type']=='DIMENSION' and e['segments'] for e in self.data['entities']))
         self.assertTrue(any(e['type']=='INSERT' and e['segments'] for e in self.data['entities']))
-        self.assertEqual(self.data['unsupported']['LINE'],1)
+        self.assertNotIn('LINE',self.data['unsupported'])
+        self.assertTrue(any(e.get('projected') and e.get('display_only') for e in self.data['entities']))
 
     def test_move_undo_redo_preserves_full_document(self):
         r = self.edit(op='move',handles=self.ids[:2],dx=7,dy=-3)

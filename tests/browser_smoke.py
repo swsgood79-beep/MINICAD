@@ -16,7 +16,7 @@ def main():
         m = doc.modelspace()
         line = m.add_line((0,0),(100,0))
         circle = m.add_circle((50,40),10)
-        # Hidden in the UI but must survive export.
+        # Read-only sampled curve must survive export as the original SPLINE.
         m.add_spline([(0,0),(50,30),(100,0)])
         source = tmp/'smoke.dxf'; doc.saveas(source)
         original = source.read_bytes()

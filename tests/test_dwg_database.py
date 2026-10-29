@@ -125,8 +125,79 @@ class DatabaseFallbackTest(unittest.TestCase):
         self.assertEqual(len(result['entities'][0]['segments']),11)
         self.assertTrue(result['entities'][0]['partial'])
 
+    def test_cloned_dimension_picture_keeps_nested_translation(self):
+        # Anonymous picture coordinates are absolute; clone_ins_pt restores the
+        # local block position before its parent insertion is applied.
+        self.data['entities']=[{'type':'INSERT','name':'assembly','insertionPoint':{'x':100,'y':200}}]
+        self.data['tables']['BLOCK_RECORD']['entries']=[
+            {'name':'assembly','entities':[{'type':'DIMENSION','dimensionType':3,'name':'*D1',
+                'definitionPoint':{'x':0,'y':0},'insertionPoint':{'x':-1000,'y':-2000}}]},
+            {'name':'*D1','entities':[{'type':'LINE','startPoint':{'x':1010,'y':2020},'endPoint':{'x':1040,'y':2020}}]},
+        ]
+        result=serialize(import_database(self.data,'cloned.dwg'))
+        line=result['entities'][0]['segments'][0]['segments'][0]
+        self.assertEqual(line['a'],[110,220]);self.assertEqual(line['b'],[140,220])
+        self.assertNotIn('DIMENSION',result['unsupported'])
+
+    def test_mirrored_circle_and_arc_use_world_coordinates(self):
+        from cad_core import primitive
+        doc=ezdxf.new();m=doc.modelspace()
+        circle=m.add_circle((-10,20),5,dxfattribs={'extrusion':(0,0,-1)})
+        result=primitive(circle)
+        self.assertEqual(result['c'],[10,20])
+        s=Drawing(doc,'mirror.dxf')
+        edit_document(s,payload({'op':'set_circle','handle':circle.dxf.handle,'x1':15,'y1':25,'radius':7}))
+        self.assertEqual(serialize(s)['entities'][0]['c'],[15,25])
+        arc=m.add_arc((-10,20),5,0,90,dxfattribs={'extrusion':(0,0,-1)})
+        result=primitive(arc)
+        self.assertEqual(result['c'],[10,20])
+        self.assertAlmostEqual(result['start'],90);self.assertAlmostEqual(result['end'],180)
+        block=doc.blocks.new('mirrored');block.add_circle((5,0),2)
+        insert=m.add_blockref('mirrored',(100,0),dxfattribs={'extrusion':(0,0,-1)})
+        self.assertEqual(primitive(insert)['segments'][0]['c'],[-105,0])
+
+    def test_curves_solids_and_attribute_text_display_without_becoming_editable(self):
+        self.data['entities']=[
+            {'type':'ELLIPSE','center':{'x':0,'y':0},'majorAxisEndPoint':{'x':10,'y':0},'axisRatio':0.5},
+            {'type':'SPLINE','degree':2,'controlPoints':[{'x':0,'y':0},{'x':5,'y':10},{'x':10,'y':0}],'knots':[0,0,0,1,1,1]},
+            {'type':'SOLID','corner1':{'x':0,'y':0},'corner2':{'x':1,'y':0},'corner3':{'x':0,'y':1}},
+            {'type':'ATTRIB','text':{'text':'part A','startPoint':{'x':0,'y':0},'textHeight':2}},
+        ]
+        s=import_database(self.data,'curves.dwg');result=serialize(s)
+        self.assertEqual(result['unsupported'],{})
+        self.assertEqual(len(result['entities']),4)
+        for curve in result['entities'][:2]:
+            self.assertTrue(curve['approximate']);self.assertGreater(len(curve['pts']),8)
+            with self.assertRaises(CADProblem):edit_document(s,payload({'op':'move','handle':curve['id'],'dx':1}))
+        self.assertTrue(result['entities'][2]['filled'])
+        self.assertEqual(result['entities'][3]['text'],'part A')
+
+    def test_projected_3d_line_is_displayed_but_cannot_be_edited(self):
+        doc=ezdxf.new();line=doc.modelspace().add_line((0,0,0),(3,4,12));s=Drawing(doc,'3d.dxf')
+        result=serialize(s)
+        self.assertTrue(result['entities'][0]['projected'])
+        self.assertEqual(result['entities'][0]['b'],[3,4])
+        self.assertTrue(any('XY' in w for w in result['warnings']))
+        with self.assertRaises(CADProblem):edit_document(s,payload({'op':'move','handle':line.dxf.handle,'dx':1}))
+
     def test_no_display_entities_is_a_failure(self):
         self.data['entities']=[{'type':'UNSUPPORTED'}]
         with self.assertRaises(CADProblem):import_database(self.data,'unsupported.dwg')
+
+    def test_cached_dwg_pictures_respect_budget_edits_and_history(self):
+        s=import_database(self.data,'cache.dwg')
+        initial=serialize(s)
+        s.display_limit=2
+        self.assertTrue(serialize(s)['preview'])
+        s.display_limit=2000000
+        self.assertEqual(serialize(s)['entities'],initial['entities'])
+        line=next(e for e in initial['entities'] if e['type']=='LINE')
+        edited=edit_document(s,payload({'op':'move','handle':line['id'],'dx':7,'dy':-3}))
+        fresh=serialize(Drawing(copy.deepcopy(s.doc),'fresh.dwg',source_format='dwg'))
+        self.assertEqual(edited['entities'],fresh['entities'])
+        moved=next(e for e in edited['entities'] if e['id']==line['id'])
+        self.assertEqual(moved['a'],[line['a'][0]+7,line['a'][1]-3])
+        s.doc=s.undo.pop()
+        self.assertEqual(serialize(s)['entities'],initial['entities'])
 
 if __name__=='__main__':unittest.main()

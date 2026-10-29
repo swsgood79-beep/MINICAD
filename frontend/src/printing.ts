@@ -18,6 +18,27 @@ export function drawingSvg(
   height = 700,
 ): string {
   const view = fit(entities, width, height);
+  // Batch linework into bounded SVG paths: hundreds of thousands of line nodes
+  // otherwise freeze the native print preview despite a fast Canvas viewer.
+  const strokes: string[] = [],
+    fills: string[] = [];
+  let stroke = "",
+    fill = "";
+  const append = (command: string, filled = false) => {
+    if (filled) {
+      if (fill.length > 200000) {
+        fills.push(fill);
+        fill = "";
+      }
+      fill += command;
+    } else {
+      if (stroke.length > 200000) {
+        strokes.push(stroke);
+        stroke = "";
+      }
+      stroke += command;
+    }
+  };
   const render = (e: Entity): string => {
     if (e.segments) return e.segments.map(render).join("");
     if (e.type === "CIRCLE") {
@@ -28,12 +49,15 @@ export function drawingSvg(
       const [a, b] = sweep(e),
         p = toScreen(arcPoint(e, a), view),
         q = toScreen(arcPoint(e, b), view);
-      return `<path d="M ${p.join(" ")} A ${e.r! * view.scale} ${e.r! * view.scale} 0 ${b - a > Math.PI ? 1 : 0} 0 ${q.join(" ")}"/>`;
+      append(
+        `M ${p.join(" ")} A ${e.r! * view.scale} ${e.r! * view.scale} 0 ${b - a > Math.PI ? 1 : 0} 0 ${q.join(" ")}`,
+      );
+      return "";
     }
     if (e.type === "TEXT" || e.type === "MTEXT") {
       const p = toScreen(e.c!, view),
-        h = Math.max(1, (e.height ?? 1) * view.scale);
-      return `<text transform="translate(${p.join(" ")}) rotate(${-(e.rotation ?? 0)})" font-family="sans-serif" font-size="${h}" stroke="none" fill="black">${(
+        h = Math.max(0.01, (e.height ?? 1) * view.scale);
+      return `<text transform="translate(${p.join(" ")}) rotate(${-(e.rotation ?? 0)}) scale(${e.widthFactor ?? 1} 1)" font-family="sans-serif" font-size="${h}" stroke="none" fill="black">${(
         e.text ?? ""
       )
         .split("\n")
@@ -43,15 +67,30 @@ export function drawingSvg(
         )
         .join("")}</text>`;
     }
-    return paths(e)
-      .map((path) =>
-        path.length === 1
-          ? `<circle cx="${toScreen(path[0], view)[0]}" cy="${toScreen(path[0], view)[1]}" r="1.5" fill="black"/>`
-          : `<polyline points="${path.map((p) => toScreen(p, view).join(",")).join(" ")}"/>`,
-      )
-      .join("");
+    let points = "";
+    for (const path of paths(e)) {
+      if (!path.length) continue;
+      if (path.length === 1) {
+        const p = toScreen(path[0], view);
+        points += `<circle cx="${p[0]}" cy="${p[1]}" r="1.5" fill="black"/>`;
+      } else {
+        append(
+          `M ${toScreen(path[0], view).join(" ")}` +
+            path
+              .slice(1)
+              .map((p) => `L ${toScreen(p, view).join(" ")}`)
+              .join("") +
+            (e.filled || e.closed ? "Z" : ""),
+          e.filled,
+        );
+      }
+    }
+    return points;
   };
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="인쇄 도면"><g fill="none" stroke="black" stroke-width="1">${entities.map(render).join("")}</g></svg>`;
+  const other = entities.map(render).join("");
+  if (stroke) strokes.push(stroke);
+  if (fill) fills.push(fill);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="인쇄 도면"><g fill="none" stroke="black" stroke-width="1">${strokes.map((d) => `<path d="${d}"/>`).join("")}${fills.map((d) => `<path d="${d}" fill="black"/>`).join("")}${other}</g></svg>`;
 }
 export function printDrawing(
   entities: Entity[],

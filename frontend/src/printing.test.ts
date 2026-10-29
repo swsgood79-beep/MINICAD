@@ -55,3 +55,30 @@ test("empty drawing still has a finite, valid print viewBox", () => {
   assert.match(svg, /viewBox="0 0 1100 700"/);
   assert.doesNotMatch(svg, /NaN|Infinity/);
 });
+
+test("large linework is batched without dropping the last object", () => {
+  const lines: Entity[] = Array.from({ length: 30001 }, (_, i) => ({
+    id: String(i),
+    type: "LINE",
+    layer: "0",
+    a: [i, 0],
+    b: [i, 10],
+  }));
+  const svg = drawingSvg([
+    ...lines,
+    {
+      id: "t",
+      type: "TEXT",
+      layer: "0",
+      c: [0, 0],
+      text: "label",
+      height: 1,
+      widthFactor: 0.5,
+    },
+  ]);
+  assert.equal((svg.match(/M /g) ?? []).length, 30001);
+  assert.ok((svg.match(/<path /g) ?? []).length < 30);
+  assert.doesNotMatch(svg, /polyline|NaN|Infinity/);
+  assert.match(svg, /scale\(0\.5 1\)/);
+  assert.ok(Number(svg.match(/font-size="([^"]+)"/)![1]) < 1);
+});

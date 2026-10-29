@@ -1,3 +1,4 @@
+import { entityBounds, sceneBounds, intersects, nearBounds } from "./bounds";
 export type Point = [number, number];
 export type Entity = {
   id: string;
@@ -12,6 +13,15 @@ export type Entity = {
   segments?: Entity[];
   closed?: boolean;
   partial?: boolean;
+  pts?: Point[];
+  filled?: boolean;
+  projected?: boolean;
+  approximate?: boolean;
+  display_only?: boolean;
+  visible?: boolean;
+  colorIndex?: number;
+  color?: string;
+  widthFactor?: number;
   text?: string;
   height?: number;
   rotation?: number;
@@ -44,6 +54,7 @@ export const arcPoint = (e: Entity, t: number): Point => [
 ];
 export function paths(e: Entity): Point[][] {
   if (e.segments) return e.segments.flatMap(paths);
+  if (e.pts) return [e.pts];
   if (e.type === "LINE") return [[e.a!, e.b!]];
   if (e.type === "POINT" || e.type === "TEXT" || e.type === "MTEXT")
     return [[e.c!]];
@@ -60,6 +71,8 @@ export function paths(e: Entity): Point[][] {
 }
 export function length(e: Entity): number {
   if (e.segments) return e.segments.reduce((n, s) => n + length(s), 0);
+  if (e.pts)
+    return e.pts.slice(1).reduce((n, p, i) => n + distance(e.pts![i], p), 0);
   if (e.type === "LINE") return distance(e.a!, e.b!);
   if (e.type === "ARC") {
     const [a, b] = sweep(e);
@@ -69,26 +82,7 @@ export function length(e: Entity): number {
   return 0;
 }
 export function fit(entities: Entity[], width: number, height: number): View {
-  let x0 = Infinity,
-    y0 = Infinity,
-    x1 = -Infinity,
-    y1 = -Infinity;
-  const visit = (e: Entity) => {
-    if (e.segments) {
-      e.segments.forEach(visit);
-      return;
-    }
-    const ps = paths(e).flat();
-    if (e.c && e.r)
-      ps.push([e.c[0] - e.r, e.c[1] - e.r], [e.c[0] + e.r, e.c[1] + e.r]);
-    for (const [x, y] of ps) {
-      x0 = Math.min(x0, x);
-      x1 = Math.max(x1, x);
-      y0 = Math.min(y0, y);
-      y1 = Math.max(y1, y);
-    }
-  };
-  entities.forEach(visit);
+  const [x0, y0, x1, y1] = sceneBounds(entities);
   if (!Number.isFinite(x0)) return { x: width / 2, y: height / 2, scale: 1 };
   const scale = Math.max(
     1e-8,
@@ -122,26 +116,61 @@ export function pick(
 ): Entity | undefined {
   let best: Entity | undefined,
     d = tolerance;
-  for (const e of entities)
-    for (const path of paths(e)) {
-      if (path.length === 1) {
-        const n = distance(p, path[0]);
-        if (n < d) {
-          d = n;
-          best = e;
-        }
-      }
-      for (let i = 1; i < path.length; i++) {
-        const n = segmentDistance(p, path[i - 1], path[i]);
-        if (n < d) {
-          d = n;
-          best = e;
-        }
-      }
+  const region = nearBounds(p, tolerance);
+  const visit = (e: Entity, owner: Entity) => {
+    if (!intersects(entityBounds(e), region)) return;
+    if (e.segments) {
+      for (const child of e.segments) visit(child, owner);
+      return;
     }
+    let n = Infinity;
+    if (e.type === "CIRCLE") n = Math.abs(distance(p, e.c!) - e.r!);
+    else if (e.type === "ARC") {
+      const [a, b] = sweep(e);
+      let t = Math.atan2(p[1] - e.c![1], p[0] - e.c![0]);
+      while (t < a) t += Math.PI * 2;
+      n =
+        t <= b
+          ? Math.abs(distance(p, e.c!) - e.r!)
+          : Math.min(distance(p, arcPoint(e, a)), distance(p, arcPoint(e, b)));
+    } else
+      for (const path of paths(e)) {
+        if (path.length === 1) n = Math.min(n, distance(p, path[0]));
+        for (let i = 1; i < path.length; i++)
+          n = Math.min(n, segmentDistance(p, path[i - 1], path[i]));
+      }
+    if (n < d) {
+      d = n;
+      best = owner;
+    }
+  };
+  for (const e of entities) visit(e, e);
   return best;
 }
 export type Snap = { point: Point; kind: string };
+// A group's drawn bounds need not contain the centres of its short arcs.
+// Cache a separate search bound so pruning never hides a valid centre snap.
+const snapBoxes = new WeakMap<Entity, ReturnType<typeof entityBounds>>();
+function snapBounds(e: Entity): ReturnType<typeof entityBounds> {
+  const cached = snapBoxes.get(e);
+  if (cached) return cached;
+  const box = [...entityBounds(e)] as ReturnType<typeof entityBounds>;
+  if (e.c) {
+    box[0] = Math.min(box[0], e.c[0]);
+    box[1] = Math.min(box[1], e.c[1]);
+    box[2] = Math.max(box[2], e.c[0]);
+    box[3] = Math.max(box[3], e.c[1]);
+  }
+  for (const child of e.segments ?? []) {
+    const b = snapBounds(child);
+    box[0] = Math.min(box[0], b[0]);
+    box[1] = Math.min(box[1], b[1]);
+    box[2] = Math.max(box[2], b[2]);
+    box[3] = Math.max(box[3], b[3]);
+  }
+  snapBoxes.set(e, box);
+  return box;
+}
 export function snap(
   p: Point,
   entities: Entity[],
@@ -156,7 +185,15 @@ export function snap(
       best = { point, kind };
     }
   };
+  const region = nearBounds(p, tolerance);
   const visit = (e: Entity) => {
+    // The centre can lie outside the tight bounds of a short arc.
+    if (
+      (e.type === "CIRCLE" || e.type === "ARC" || e.type === "ELLIPSE") &&
+      e.c
+    )
+      consider(e.c, "중심점");
+    if (!intersects(snapBounds(e), region)) return;
     if (e.segments) {
       e.segments.forEach(visit);
       return;
@@ -166,13 +203,14 @@ export function snap(
       consider(e.b!, "끝점");
       consider([(e.a![0] + e.b![0]) / 2, (e.a![1] + e.b![1]) / 2], "중간점");
     }
-    if (e.type === "CIRCLE" || e.type === "ARC") consider(e.c!, "중심점");
     if (e.type === "ARC") {
       const [a, b] = sweep(e);
       consider(arcPoint(e, a), "끝점");
       consider(arcPoint(e, b), "끝점");
     }
     if (e.type === "POINT") consider(e.c!, "점");
+    if (e.pts && !e.approximate && !e.projected)
+      for (const point of e.pts) consider(point, "끝점");
   };
   entities.forEach(visit);
   return best;
@@ -197,6 +235,7 @@ export function visibleEntities(
   parentLayer?: string,
 ): Entity[] {
   return entities.flatMap((e) => {
+    if (e.visible === false) return [];
     const layer = parentLayer && e.layer === "0" ? parentLayer : e.layer;
     if (hidden.has(layer)) return [];
     if (!e.segments) return [e];

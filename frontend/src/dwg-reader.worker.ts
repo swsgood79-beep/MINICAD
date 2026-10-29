@@ -3,6 +3,7 @@
 import {
   LibreDwg,
   Dwg_Error,
+  Dwg_Object_Type,
   type DwgEntity,
   type DwgDatabase,
 } from "@mlightcad/libredwg-web";
@@ -12,6 +13,8 @@ const fields = [
   "layer",
   "isVisible",
   "isInPaperSpace",
+  "colorIndex",
+  "color",
   "startPoint",
   "endPoint",
   "center",
@@ -35,6 +38,20 @@ const fields = [
   "name",
   "definitionPoint",
   "dimensionType",
+  "textPoint",
+  "direction",
+  "controlPoints",
+  "fitPoints",
+  "knots",
+  "weights",
+  "degree",
+  "majorAxisEndPoint",
+  "axisRatio",
+  "corner1",
+  "corner2",
+  "corner3",
+  "corner4",
+  "isSpline",
 ];
 function compact(e: DwgEntity) {
   const source = e as unknown as Record<string, unknown>,
@@ -124,6 +141,42 @@ self.onmessage = async ({
         )
           layer.locked = Boolean(locked);
       }
+      // convertEx 0.8.2 copies clone_ins_pt only for aligned dimensions. All
+      // dimension variants use it to translate their anonymous picture block.
+      // Losing it displaces dimensions inside copied/nested blocks a second time.
+      const clonePoints = new Map<string, unknown>();
+      for (const [name, type] of Object.entries(Dwg_Object_Type)) {
+        if (!name.startsWith("DWG_TYPE_DIMENSION_") || typeof type !== "number")
+          continue;
+        for (const ptr of reader.dwg_getall_entity_by_type(parsed.data, type)) {
+          const object = reader.dwg_obj_generic_to_object(ptr);
+          const handle = reader
+            .dwg_obj_get_handle_value(object)
+            ?.toString(16)
+            .toUpperCase();
+          const point = reader.dwg_dynapi_entity_data(ptr, "clone_ins_pt") as
+            | { x?: number; y?: number }
+            | undefined;
+          if (
+            handle &&
+            point &&
+            Number.isFinite(point.x) &&
+            Number.isFinite(point.y)
+          )
+            clonePoints.set(handle, point);
+        }
+      }
+      const restoreDimensions = (entities: DwgEntity[]) => {
+        for (const entity of entities) {
+          const point = clonePoints.get(entity.handle.toUpperCase());
+          if (entity.type === "DIMENSION" && point)
+            (entity as unknown as Record<string, unknown>).insertionPoint =
+              point;
+        }
+      };
+      restoreDimensions(db.entities);
+      for (const block of db.tables.BLOCK_RECORD.entries)
+        restoreDimensions(block.entities);
       const databaseJSON = JSON.stringify(
         {
           header: { INSUNITS: db.header.INSUNITS },
