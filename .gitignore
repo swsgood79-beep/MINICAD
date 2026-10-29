@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+frontend/dist/
+.playwright/
+test-results/
+
+frontend/public/pyodide/
+frontend/public/cad_core.py
+frontend/public/browser_runtime.py
