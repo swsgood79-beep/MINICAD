@@ -25,8 +25,8 @@ def payload(data):
 
 def dispatch(path, data, key=None, filename='drawing.dxf'):
     global session, session_id
-    if path=='/api/open':
-        if not filename.lower().endswith('.dxf'):
+    if path in ('/api/open','/api/open-dwg'):
+        if path=='/api/open' and not filename.lower().endswith('.dxf'):
             raise CADProblem(422,'무료 브라우저 버전은 DXF를 지원합니다. DWG는 CAD에서 DXF로 내보낸 뒤 열어주세요.')
         source=Path('/tmp/minicad-input.dxf')
         if source.stat().st_size>40*1024*1024:
@@ -34,6 +34,9 @@ def dispatch(path, data, key=None, filename='drawing.dxf'):
         try:
             doc=ezdxf.readfile(source)
             candidate=Drawing(doc,filename)
+            if path=='/api/open-dwg':
+                candidate.source_format='dwg'
+                candidate.warnings.append('DWG 시험 읽기: 일부 객체·폰트·배치가 누락되거나 달라질 수 있습니다. 치수는 원본 CAD와 대조하세요. 수정은 현재 탭에서만 유지되며, DWG/DXF 저장은 제공하지 않습니다.')
             result=serialize(candidate)
         except Exception:
             raise CADProblem(422,'DXF를 읽지 못했습니다. 파일 형식과 손상 여부를 확인하세요.')
@@ -57,6 +60,8 @@ def dispatch(path, data, key=None, filename='drawing.dxf'):
         session.doc=source.pop()
         session.revision+=1
         return serialize(session)
+    if path.startswith('/api/export/') and session.source_format=='dwg':
+        raise CADProblem(400,'DWG는 화면 수정·측정·인쇄만 지원하며 파일 저장은 제공하지 않습니다.')
     if path=='/api/export/dxf':
         session.doc.saveas('/tmp/minicad-output.dxf')
         return {'export':True}

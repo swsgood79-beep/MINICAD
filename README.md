@@ -1,14 +1,28 @@
-# 무료 웹 버전 — GitHub Pages
+# 무료 웹 버전 — DWG 열기·수정·치수·인쇄
 
-**PC 설치나 Render 가입 없이 브라우저에서 DXF를 열고 측정·수정·저장하는 버전**을 추가했습니다. 기존 FastAPI/ODA 서버 버전도 유지합니다.
+**PC 설치나 Render 가입 없이 DWG/DXF를 열고 측정·수정·인쇄하는 브라우저 버전**을 추가했습니다. 기존 FastAPI/ODA 서버 버전도 유지합니다.
 
 - GitHub Pages 정적 사이트에서 Pyodide(WebAssembly Python)와 ezdxf를 Web Worker로 실행합니다.
 - 도면은 브라우저 메모리에서만 처리합니다. 업로드 API, 분석/추적 서비스, 외부 CDN 요청을 사용하지 않습니다. 실행 파일과 라이브러리도 같은 사이트에서 제공합니다.
-- 첫 파일을 열 때 약 20 MB의 실행 파일을 불러오므로 잠시 기다려야 합니다. 이후 같은 탭에서 재사용합니다.
+- 첫 DXF 실행은 약 20 MB, DWG를 열면 추가로 약 11 MB의 해석기를 불러오므로 잠시 기다려야 합니다. 이후 같은 탭에서 재사용합니다.
 - `예제 도면` 버튼으로 바로 시험할 수 있습니다. 새로고침/탭 닫기 전에 변경 파일을 다운로드하세요.
-- **무료 웹 버전은 DXF 전용입니다.** DWG는 기존 CAD에서 DXF로 내보낸 뒤 여세요. ODA 실행 파일은 브라우저에서 실행할 수 없습니다.
+- **DWG 시험 읽기를 지원합니다.** LibreDWG 기반의 별도 WebAssembly Worker가 DWG를 브라우저 안에서 해석하고 종료합니다. DWG 수정은 현재 탭에서만 유지되며 DWG/DXF 파일 재저장은 차단합니다. 인쇄/PDF로 보관하세요. 기존 DXF 파일은 계속 DXF로 저장할 수 있습니다.
 - 미표시 객체 보존, 원자적 편집, 이력, 측정 계산에 서버와 동일한 `cad_core.py`를 사용합니다. 화면 객체 목록으로 DXF를 다시 만드는 방식이 아닙니다.
 - 큰 파일과 긴 이력은 브라우저 메모리를 소비합니다. 입력 한도는 40 MiB지만 그 크기의 모든 도면 처리를 보장하지 않습니다.
+
+## DWG 사용법과 인쇄
+
+1. **도면 열기**에서 `.dwg` 또는 `.dxf`를 선택합니다. 파일은 외부로 전송하지 않습니다.
+2. 휠/가운데 버튼으로 이동·확대하고, 끝점/중심점 스냅으로 거리·반지름·각도를 확인합니다.
+3. 선·원·호·2D 폴리라인의 이동/복사/삭제, 선·원 좌표·크기 변경과 취소/다시 실행을 지원합니다. 블록·치수·문자는 현재 읽기 전용입니다.
+4. **인쇄 / PDF** 또는 Ctrl+P를 누릅니다. 브라우저 인쇄 창에서 프린터나 **PDF로 저장**을 선택합니다.
+5. 인쇄는 표시 중인 레이어의 전체 도면을 **A4 가로 한 장에 맞추는 흑백 벡터 출력**입니다. 격자·버튼·선택 강조는 출력하지 않고, 최근 측정값과 호환성 주의 문구를 함께 표시합니다. **실제 1:1 축척/CTB/도면 레이아웃 인쇄는 아직 지원하지 않습니다.**
+
+검증: GNU LibreDWG 공개 표본 DWG 2000/2018을 Chromium에서 실제로 열고, 알려진 100 mm 선과 반지름 20 mm 원을 대조했습니다. 화면 이동/취소/재실행, 저장 차단, 숨긴 레이어 인쇄 제외, 한 페이지 PDF 생성, 잘못된 DWG 후 기존 도면 유지, 원본 파일 해시 보존, API/업로드/제3자 요청 없음도 검사했습니다. **모든 DWG 버전·업체 확장 객체의 호환성을 보장하지 않습니다.** 고객 DWG, Windows 실물 프린터와 특정 SHX/폰트 재현은 추가 검증이 필요합니다. 해석 실패 시 명확한 오류를 표시하고 이전 도면을 유지합니다.
+
+실제 DWG 브라우저 회귀는 `MINICAD_TEST_URL=<정적 테스트 주소> python tests/dwg_browser_smoke.py`로 실행합니다. 공개 fixture와 출처/라이선스는 `tests/fixtures/`에 있습니다. 테스트 PDF는 무시되는 `test-results/`에 생성됩니다.
+
+DWG Worker는 GPL-3.0 계열 라이브러리 `@mlightcad/libredwg-web` 0.8.2를 사용합니다. 별도 Worker 코드에 SPDX 표기를 두고, 웹 화면의 **오픈소스** 링크에서 GPL 전문과 정확한 대응 소스/빌드 방법을 제공합니다. upstream WASM은 수정하지 않았습니다. 참조: `frontend/public/third-party/`. 원래 ODA 서버 경로는 선택 기능으로 유지합니다.
 
 ## GitHub Pages 배포
 
@@ -33,7 +47,7 @@ python -m http.server 8081 --directory frontend/dist
 
 `prepare_browser.py`는 npm 잠금 파일로 설치한 Pyodide 0.29.3과 공식 배포 wheel을 준비하고 SHA-256을 검증합니다. 생성된 런타임 파일은 Git에 포함하지 않으며 Actions에서 재현합니다. TLS/체크섬 검증을 끄지 않습니다. 사이트 이용 중 별도 Python 서버는 필요하지 않습니다.
 
-실제 정적 사이트 브라우저 테스트는 `MINICAD_TEST_BROWSER=1 MINICAD_TEST_URL=<정적 사이트 주소> python tests/browser_smoke.py`로 실행합니다. 테스트는 API 요청/업로드/제3자 요청이 하나라도 발생하면 실패합니다. Playwright와 Chromium이 필요합니다. 현재 정적 사이트에서 실제 편집·측정·다운로드 검증을 통과했고, 공유 엔진/API/접근 제어 Python 테스트 19개와 기하 테스트 11개도 통과했습니다.
+실제 정적 사이트 브라우저 테스트는 `MINICAD_TEST_BROWSER=1 MINICAD_TEST_URL=<정적 사이트 주소> python tests/browser_smoke.py`로 실행합니다. 테스트는 API 요청/업로드/제3자 요청이 하나라도 발생하면 실패합니다. Playwright와 Chromium이 필요합니다. 현재 정적 사이트에서 실제 편집·측정·다운로드 검증을 통과했고, 공유 엔진/API/접근 제어 Python 테스트 20개와 기하·인쇄 테스트 16개도 통과했습니다.
 
 추가 파일: `cad_core.py`(공유 문서 엔진), `browser_runtime.py`(브라우저 세션), `frontend/public/cad-worker.js`(Python Worker), `frontend/src/transport.ts`(정적/서버 연결 구분), `scripts/prepare_browser.py`(검증 및 실행 파일 준비), `tests/test_browser_runtime.py`(브라우저 문서 회귀).
 
@@ -110,7 +124,7 @@ $env:ODA_FILE_CONVERTER = 'C:\Program Files\ODA\ODAFileConverter\ODAFileConverte
 
 화면에 표시된 객체 목록으로 DXF를 새로 만드는 대신 **원래 ezdxf 문서 전체를 유지하며 선택한 객체만 수정**합니다. 미지원 SPLINE, INSERT, DIMENSION, 블록 정의 등을 화면에서 누락하더라도 저장 시 임의 삭제하지 않습니다. 다만 ezdxf의 DXF 재기록 및 ODA 변환이 원본과 바이트 단위 동일성이나 모든 CAD 확장 데이터의 무손실을 보장하지는 않습니다.
 
-현재 INSERT/DIMENSION/HATCH/SPLINE/외부 참조는 표시·편집하지 않습니다. 미표시 객체 종류/개수와 경고를 보여줍니다. 3D POLYLINE, XY 평면 외 extrusion, 경사진 3D 선은 미지원으로 처리합니다. 화면은 modelspace의 XY 투영만 다루며 paperspace/레이아웃, 객체별 Z 측정은 미구현입니다. 객체별 색·선종류·선가중치, SHX/폰트, MTEXT 스타일 및 정교한 문자 선택 영역도 후속 과제입니다. 문자 편집은 아직 지원하지 않습니다.
+기본 INSERT 중첩 블록(최대 8단계)과 DIMENSION의 가상 선·호·문자를 읽기 전용으로 표시합니다. 블록 내부 레이어 0의 상속과 숨김을 스냅·인쇄에도 반영합니다. HATCH/SPLINE/외부 참조 등은 아직 표시·편집하지 않습니다. 미표시 객체 종류/개수와 경고를 보여줍니다. 3D POLYLINE, XY 평면 외 extrusion, 경사진 3D 선은 미지원으로 처리합니다. 화면은 modelspace의 XY 투영만 다루며 paperspace/레이아웃, 객체별 Z 측정은 미구현입니다. 객체별 색·선종류·선가중치, SHX/폰트, MTEXT 스타일 및 정교한 문자 선택 영역도 후속 과제입니다. 문자 편집은 아직 지원하지 않습니다.
 
 표시 한도는 modelspace 객체 120,000개이며 초과 시 경고합니다. 생략된 객체는 문서에 보존됩니다. 공간 인덱스/뷰포트 컬링/곡선별 확대율 적응 렌더링은 아직 없어 대형 도면에서 성능 한계가 있습니다. 세션당 전체 문서를 복제하는 이력 방식도 메모리를 소비합니다.
 
@@ -150,7 +164,7 @@ npm run build
 ## 다음 단계
 
 1. ODA가 설치된 Windows에서 고객 DWG/DXF 표본의 왕복 검증 및 회귀 도면 모음.
-2. INSERT의 중첩 블록 변환/속성, DIMENSION의 가상 객체, HATCH, 정교한 TEXT/MTEXT 렌더링.
+2. 블록 속성·비균일 축척·해치·외부 참조, 정교한 TEXT/MTEXT와 치수 스타일 렌더링.
 3. 선·원·호의 교차점 스냅, 직교/접선/사분점 스냅, 박스 선택과 치수 주석. **교차점 스냅은 이번 단계에 미구현**.
 4. 대형 도면 공간 인덱스, 렌더링 캐시, 작업 스레드, 명령 기반 이력과 메모리 예산.
 5. 단위 환산, 레이어 상태 저장 편집, 고급 객체 속성, 추가 CAD 편집 명령.

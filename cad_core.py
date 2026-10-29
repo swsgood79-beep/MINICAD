@@ -20,6 +20,7 @@ class Drawing:
     undo: list = field(default_factory=list)
     redo: list = field(default_factory=list)
     revision: int = 0
+    source_format: str = 'dxf'
 
 def planar(e):
     if e.dxftype() == 'POLYLINE' and not e.is_2d_polyline:
@@ -27,7 +28,7 @@ def planar(e):
     normal = e.dxf.get('extrusion', (0, 0, 1))
     return all(abs(a-b) < 1e-10 for a,b in zip(normal, (0,0,1)))
 
-def primitive(e):
+def primitive(e, depth=0, ancestors=()):
     d = e.dxf
     k = e.dxftype()
     def xy(p):
@@ -50,6 +51,21 @@ def primitive(e):
             item.update(start=float(d.start_angle), end=float(d.end_angle))
     elif k in ('LWPOLYLINE', 'POLYLINE'):
         item.update(segments=[primitive(v) for v in e.virtual_entities()], closed=bool(e.is_closed if k == 'POLYLINE' else e.closed))
+    elif k in ('INSERT', 'DIMENSION'):
+        name=d.get('name', '') if k=='INSERT' else ''
+        if depth>=8 or name and name in ancestors:
+            raise ValueError('블록 중첩 한도 또는 순환 참조')
+        parts=[]
+        omitted={}
+        for child in e.virtual_entities():
+            try:
+                parts.append(primitive(child,depth+1,ancestors+((name,) if name else ())))
+            except (ValueError,TypeError,AttributeError,ezdxf.DXFError):
+                kind=child.dxftype()
+                omitted[kind]=omitted.get(kind,0)+1
+        if not parts:
+            raise ValueError('표시 가능한 블록 또는 치수 객체가 없습니다.')
+        item.update(segments=parts,display_only=True,omitted=omitted)
     elif k == 'POINT':
         item.update(c=xy(d.location))
     elif k in ('TEXT', 'MTEXT'):
@@ -66,7 +82,13 @@ def serialize(s: Drawing):
             truncated = True
             break
         try:
-            entities.append(primitive(e))
+            item=primitive(e)
+            entities.append(item)
+            def omissions(value):
+                for kind,count in value.get('omitted',{}).items():
+                    unsupported[kind]=unsupported.get(kind,0)+count
+                for child in value.get('segments',[]):omissions(child)
+            omissions(item)
         except (ValueError, TypeError, AttributeError, ezdxf.DXFError):
             k = e.dxftype()
             unsupported[k] = unsupported.get(k, 0)+1
@@ -76,7 +98,7 @@ def serialize(s: Drawing):
     if truncated:
         warnings.append('화면 표시 한도 120,000개를 초과했습니다. 나머지 객체도 문서에는 보존됩니다.')
     return dict(entities=entities, unsupported=unsupported, total=len(s.doc.modelspace()), units=int(s.doc.units),
-                filename=s.name, layers=[{'name':l.dxf.name,'visible':not l.is_off() and not l.is_frozen(),'locked':l.is_locked()} for l in s.doc.layers],
+                filename=s.name, source_format=s.source_format, layers=[{'name':l.dxf.name,'visible':not l.is_off() and not l.is_frozen(),'locked':l.is_locked()} for l in s.doc.layers],
                 warnings=warnings, truncated=truncated, revision=s.revision, can_undo=bool(s.undo), can_redo=bool(s.redo))
 
 def edit_document(s, payload):

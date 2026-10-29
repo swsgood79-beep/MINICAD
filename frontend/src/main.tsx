@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  visibleEntities,
   type Entity,
   type Point,
   type View,
@@ -17,9 +18,11 @@ import {
   angle,
 } from "./geometry";
 import "./style.css";
+import { printDrawing } from "./printing";
 import { browserMode, cadFetch } from "./transport";
 type Drawing = {
   document_id?: string;
+  source_format?: string;
   entities: Entity[];
   filename: string;
   layers: { name: string; visible: boolean; locked: boolean }[];
@@ -87,7 +90,7 @@ function App() {
     [digits, setDigits] = useState(3),
     [message, setMessage] = useState(
       browserMode
-        ? "DXF 파일을 여세요. 첫 실행 시 도면 엔진을 준비합니다."
+        ? "DWG 또는 DXF를 여세요. 첫 실행 시 도면 엔진을 준비합니다."
         : "DWG 또는 DXF 파일을 열어 시작하세요.",
     ),
     [result, setResult] = useState("—"),
@@ -98,7 +101,7 @@ function App() {
     stage = useRef<HTMLDivElement>(null),
     drag = useRef<{ point: Point; view: View } | null>(null),
     busyRef = useRef(false);
-  const visible = (drawing?.entities ?? []).filter((e) => !hidden.has(e.layer));
+  const visible = visibleEntities(drawing?.entities ?? [], hidden);
   const fmt = (n: number) => n.toFixed(digits),
     unit = unitNames[drawing?.units ?? 0] ?? `단위 코드 ${drawing?.units}`;
   const point = (e: { clientX: number; clientY: number }): Point => {
@@ -145,10 +148,14 @@ function App() {
       ctx.lineTo(w, y);
       ctx.stroke();
     }
-    for (const e of visible) {
-      ctx.strokeStyle = selected.includes(e.id) ? "#ffcb6b" : "#74dbe8";
+    const paint = (e: Entity, highlight: boolean) => {
+      if (e.segments) {
+        e.segments.forEach((part) => paint(part, highlight));
+        return;
+      }
+      ctx.strokeStyle = highlight ? "#ffcb6b" : "#74dbe8";
       ctx.fillStyle = ctx.strokeStyle;
-      ctx.lineWidth = selected.includes(e.id) ? 2.5 : 1.2;
+      ctx.lineWidth = highlight ? 2.5 : 1.2;
       if (e.type === "TEXT" || e.type === "MTEXT") {
         const p = toScreen(e.c!, view);
         ctx.save();
@@ -158,7 +165,7 @@ function App() {
         for (const [i, line] of (e.text ?? "").split("\n").entries())
           ctx.fillText(line, 0, i * (e.height ?? 1) * view.scale * 1.3);
         ctx.restore();
-        continue;
+        return;
       }
       for (const path of paths(e)) {
         if (!path.length) continue;
@@ -174,7 +181,8 @@ function App() {
           ctx.stroke();
         }
       }
-    }
+    };
+    visible.forEach((e) => paint(e, selected.includes(e.id)));
     if (pending) {
       ctx.strokeStyle = "#facc15";
       ctx.setLineDash([5, 5]);
@@ -258,6 +266,18 @@ function App() {
   }
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p" && drawing) {
+        e.preventDefault();
+        if (!busy)
+          printDrawing(
+            visible,
+            drawing.filename,
+            result,
+            unit,
+            drawing.warnings,
+          );
+        return;
+      }
       if ((e.target as HTMLElement).matches("input,textarea,select")) return;
       if (e.key === "Escape") {
         setPending(null);
@@ -309,7 +329,9 @@ function App() {
   async function open(file: File) {
     if (
       dirty &&
-      !window.confirm("저장하지 않은 변경이 있습니다. 새 도면을 여시겠습니까?")
+      !window.confirm(
+        "현재 탭의 수정 내용이 사라집니다. 필요한 경우 저장 또는 인쇄한 뒤 새 도면을 여세요. 계속할까요?",
+      )
     )
       return;
     await run(async () => {
@@ -503,7 +525,7 @@ function App() {
           <input
             disabled={busy}
             type="file"
-            accept={browserMode ? ".dxf" : ".dwg,.dxf"}
+            accept=".dwg,.dxf"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void open(f);
@@ -511,14 +533,33 @@ function App() {
             }}
           />
         </label>
-        <button disabled={!drawing || busy} onClick={() => void save("dxf")}>
+        <button
+          disabled={!drawing || drawing.source_format === "dwg" || busy}
+          onClick={() => void save("dxf")}
+        >
           DXF 별도 저장
         </button>
+        {!browserMode && (
+          <button
+            disabled={!drawing || !oda || busy}
+            onClick={() => void save("dwg")}
+          >
+            DWG 별도 저장
+          </button>
+        )}
         <button
-          disabled={!drawing || !oda || busy}
-          onClick={() => void save("dwg")}
+          disabled={!drawing || !visible.length || busy}
+          onClick={() =>
+            printDrawing(
+              visible,
+              drawing!.filename,
+              result,
+              unit,
+              drawing!.warnings,
+            )
+          }
         >
-          {browserMode ? "DWG: 서버 버전 전용" : "DWG 별도 저장"}
+          인쇄 / PDF
         </button>
         <button
           disabled={!drawing?.can_undo || busy}
@@ -540,7 +581,9 @@ function App() {
           onClick={() => {
             if (
               dirty &&
-              !window.confirm("저장하지 않은 변경을 버리고 닫을까요?")
+              !window.confirm(
+                "현재 탭의 수정 내용을 버리고 닫을까요? 필요한 내용은 저장 또는 인쇄해 주세요.",
+              )
             )
               return;
             void run(async () => {
@@ -635,7 +678,7 @@ function App() {
               <strong>도면에서 시작하세요</strong>
               <p>
                 {browserMode
-                  ? "DXF를 열면 이 브라우저 안에서 처리합니다. 외부 전송은 없습니다."
+                  ? "DWG·DXF를 브라우저 안에서 처리합니다. DWG 수정은 현재 탭에만 적용됩니다."
                   : "DXF를 바로 열거나 ODA 변환기로 DWG를 불러오세요."}
               </p>
               <p>실제 좌표 기반 측정 · 원본을 유지하는 별도 저장</p>
@@ -653,7 +696,7 @@ function App() {
           <p>
             DWG:{" "}
             {browserMode
-              ? "DXF로 변환 후 열기"
+              ? "브라우저 시험 읽기 · 저장 제외"
               : oda
                 ? "ODA 설치 확인"
                 : "ODA 설치 필요"}
@@ -695,6 +738,12 @@ function App() {
             </label>
           ))}
           <h2>객체 속성</h2>
+          {drawing?.source_format === "dwg" && (
+            <p className="note">
+              DWG 수정은 현재 화면에만 적용됩니다. 인쇄/PDF로 보관하세요. 원본
+              DWG 파일은 변경되지 않습니다.
+            </p>
+          )}
           <p>{selected.length}개 선택</p>
           {selectedEntity && (
             <>
@@ -726,7 +775,7 @@ function App() {
           )}
           <p className="note">
             {browserMode
-              ? "DXF 브라우저 버전 · 파일 외부 전송 없음"
+              ? "DWG·DXF 브라우저 버전 · 파일 외부 전송 없음"
               : "시험 버전 · 로컬 사용 전용"}
             <br />
             문자 배치는 근사 표시입니다. 원본 도면을 보관하고 저장 결과를
@@ -750,6 +799,19 @@ function App() {
           끝점·중간점·중심점 스냅
         </label>
         <span>{unit}</span>
+        <a
+          className="licenses"
+          href={
+            new URL(
+              "third-party/",
+              new URL(import.meta.env.BASE_URL, document.baseURI),
+            ).href
+          }
+          target="_blank"
+          rel="noreferrer"
+        >
+          오픈소스
+        </a>
         <span role="status">{busy ? "처리 중…" : message}</span>
       </footer>
     </div>

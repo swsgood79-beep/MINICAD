@@ -1,0 +1,152 @@
+{
+  "entities": [
+    {
+      "id": "8D",
+      "type": "CIRCLE",
+      "layer": "Tavolo 1",
+      "c": [
+        199.6812627452187,
+        24.69575912391304
+      ],
+      "r": 20.0
+    },
+    {
+      "id": "8E",
+      "type": "TEXT",
+      "layer": "Tavolo 1",
+      "c": [
+        -50.31873725478131,
+        134.695759123913
+      ],
+      "text": "Jen teksto simpla, cxu ne?",
+      "height": 5.0,
+      "rotation": 0.0
+    },
+    {
+      "id": "8F",
+      "type": "LWPOLYLINE",
+      "layer": "Tavolo 1",
+      "segments": [
+        {
+          "id": null,
+          "type": "LINE",
+          "layer": "Tavolo 1",
+          "a": [
+            -50.3187372547813,
+            -85.30424087608696
+          ],
+          "b": [
+            49.6812627452187,
+            -85.30424087608696
+          ]
+        },
+        {
+          "id": null,
+          "type": "LINE",
+          "layer": "Tavolo 1",
+          "a": [
+            49.6812627452187,
+            -85.30424087608696
+          ],
+          "b": [
+            49.6812627452187,
+            54.69575912391305
+          ]
+        },
+        {
+          "id": null,
+          "type": "LINE",
+          "layer": "Tavolo 1",
+          "a": [
+            49.6812627452187,
+            54.69575912391305
+          ],
+          "b": [
+            -50.3187372547813,
+            54.69575912391305
+          ]
+        },
+        {
+          "id": null,
+          "type": "LINE",
+          "layer": "Tavolo 1",
+          "a": [
+            -50.3187372547813,
+            54.69575912391305
+          ],
+          "b": [
+            -50.3187372547813,
+            -85.30424087608696
+          ]
+        }
+      ],
+      "closed": true
+    },
+    {
+      "id": "90",
+      "type": "LINE",
+      "layer": "Tavolo 1",
+      "a": [
+        99.6812627452187,
+        94.69575912391304
+      ],
+      "b": [
+        199.6812627452187,
+        94.69575912391304
+      ]
+    },
+    {
+      "id": "91",
+      "type": "LINE",
+      "layer": "0",
+      "a": [
+        199.6812627452187,
+        194.695759123913
+      ],
+      "b": [
+        199.6812627452187,
+        94.69575912391304
+      ]
+    },
+    {
+      "id": "92",
+      "type": "LINE",
+      "layer": "0",
+      "a": [
+        99.6812627452187,
+        94.69575912391304
+      ],
+      "b": [
+        199.6812627452187,
+        194.695759123913
+      ]
+    }
+  ],
+  "unsupported": {},
+  "total": 6,
+  "units": 4,
+  "filename": "sample",
+  "source_format": "dxf",
+  "layers": [
+    {
+      "name": "0",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "name": "Tavolo 1",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "name": "Defpoints",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "warnings": [],
+  "truncated": false,
+  "revision": 0,
+  "can_undo": false,
+  "can_redo": false
+}

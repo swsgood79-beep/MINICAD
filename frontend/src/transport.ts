@@ -1,3 +1,4 @@
+import { readDwg } from "./dwg";
 /** The server UI and static Pages UI share controls; static mode never uploads files. */
 export const browserMode = import.meta.env.VITE_CAD_MODE === "browser";
 let worker: Worker | undefined;
@@ -53,18 +54,29 @@ export async function cadFetch(
       { detail: "파일 크기는 40MB 이하만 지원합니다." },
       { status: 413 },
     );
-  if (file instanceof File && !file.name.toLowerCase().endsWith(".dxf"))
+  if (file instanceof File && !/\.(dxf|dwg)$/i.test(file.name))
     return Response.json(
       {
-        detail:
-          "무료 브라우저 버전은 DXF 전용입니다. DWG는 DXF로 변환한 뒤 열어주세요.",
+        detail: "DWG 또는 DXF 파일을 선택하세요.",
       },
       { status: 422 },
     );
-  const bytes = file instanceof File ? await file.arrayBuffer() : undefined;
+  let bytes = file instanceof File ? await file.arrayBuffer() : undefined;
+  const isDwg =
+    file instanceof File && file.name.toLowerCase().endsWith(".dwg");
+  if (isDwg) {
+    try {
+      bytes = await readDwg(bytes!);
+    } catch (error) {
+      return Response.json(
+        { detail: (error as Error).message },
+        { status: 422 },
+      );
+    }
+  }
   const job = {
     id,
-    path: url.pathname,
+    path: isDwg ? "/api/open-dwg" : url.pathname,
     documentId: url.searchParams.get("document_id"),
     filename: file instanceof File ? file.name : undefined,
     file: bytes,

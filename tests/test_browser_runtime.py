@@ -44,6 +44,23 @@ class BrowserRuntimeTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'DXF'):
             runtime.dispatch('/api/open',{},filename='file.dwg')
         self.assertEqual(runtime.session.revision,0)
+    def test_dwg_screen_edit_works_but_file_exports_are_blocked(self):
+        self.source.write_bytes(self.raw)
+        opened=runtime.dispatch('/api/open-dwg',{},filename='original.dwg')
+        key=opened['document_id']
+        self.assertEqual(opened['source_format'],'dwg')
+        self.assertEqual(opened['filename'],'original.dwg')
+        self.assertTrue(any('DWG 시험' in w for w in opened['warnings']))
+        edited=runtime.dispatch('/api/edit',dict(op='move',handle=self.ids[0],dx=10),key)
+        self.assertEqual(edited['source_format'],'dwg')
+        self.assertEqual(edited['filename'],'original.dwg')
+        self.assertEqual(runtime.session.doc.entitydb[self.ids[0]].dxf.start,(10,0,0))
+        for format in ('dxf','dwg'):
+            response=json.loads(runtime.dispatch_json('/api/export/'+format,'{}',key,''))
+            self.assertEqual(response['status'],400)
+        runtime.dispatch('/api/history/undo',{},key)
+        self.assertEqual(runtime.session.doc.entitydb[self.ids[0]].dxf.start,(0,0,0))
+
     def test_failed_open_preserves_previous_document(self):
         self.source.write_bytes(b'not a DXF')
         response=json.loads(runtime.dispatch_json('/api/open','{}',None,'bad.dxf'))

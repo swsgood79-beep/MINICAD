@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "test": "tsx --test src/geometry.test.ts",
+    "test": "tsx --test src/geometry.test.ts src/printing.test.ts",
     "build:pages": "tsc --noEmit && vite build --mode pages --base=./"
   },
   "dependencies": {
+    "@mlightcad/libredwg-web": "0.8.2",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },

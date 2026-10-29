@@ -188,3 +188,18 @@ export function angle(a: Entity, b: Entity) {
     Math.PI
   );
 }
+
+/** Layer 0 inside a block inherits the insertion layer; hidden children must not snap or print. */
+export function visibleEntities(
+  entities: Entity[],
+  hidden: Set<string>,
+  parentLayer?: string,
+): Entity[] {
+  return entities.flatMap((e) => {
+    const layer = parentLayer && e.layer === "0" ? parentLayer : e.layer;
+    if (hidden.has(layer)) return [];
+    if (!e.segments) return [e];
+    const segments = visibleEntities(e.segments, hidden, layer);
+    return segments.length ? [{ ...e, segments }] : [];
+  });
+}
