@@ -37,7 +37,7 @@ def main():
         download(BASE+spec['file_name'],TARGET/spec['file_name'],spec['sha256'])
     for name in ('numpy','fonttools','pyparsing','typing-extensions'):package(name)
     download('https://files.pythonhosted.org/packages/a0/09/5ecb6f82d35a2f4a4334d0a608fcf764827fa69dccdf5987ce309c16b6c1/ezdxf-1.4.4-py3-none-any.whl',TARGET/'ezdxf-1.4.4-py3-none-any.whl','666edda631ba717270293b734f5d58dd97a1d1aba4787187f09d0cc584645865')
-    for name in ('cad_core.py','browser_runtime.py'):shutil.copy2(ROOT/name,PUBLIC/name)
+    for name in ('cad_core.py','browser_runtime.py','dwg_database.py'):shutil.copy2(ROOT/name,PUBLIC/name)
     print('Browser runtime assets prepared (all served by the same website).')
 
 if __name__=='__main__':main()

@@ -6,6 +6,7 @@ import json
 import math
 import ezdxf
 from cad_core import Drawing, CADProblem, serialize, edit_document
+from dwg_database import import_database
 
 session = None
 session_id = None
@@ -25,6 +26,12 @@ def payload(data):
 
 def dispatch(path, data, key=None, filename='drawing.dxf'):
     global session, session_id
+    if path=='/api/open-dwg-database':
+        candidate=import_database(data,filename)
+        result=serialize(candidate)
+        if not result['entities']:raise CADProblem(422,'DWG 대체 읽기에서 표시 가능한 2D 객체를 찾지 못했습니다.')
+        session,session_id=candidate,uuid4().hex
+        return dict(result,document_id=session_id)
     if path in ('/api/open','/api/open-dwg'):
         if path=='/api/open' and not filename.lower().endswith('.dxf'):
             raise CADProblem(422,'무료 브라우저 버전은 DXF를 지원합니다. DWG는 CAD에서 DXF로 내보낸 뒤 열어주세요.')

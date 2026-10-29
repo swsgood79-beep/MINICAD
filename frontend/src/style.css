@@ -191,3 +191,27 @@ footer span[role="status"] {
 input[type="checkbox"] {
   accent-color: #56b7d5;
 }
+
+.open-error {
+  position: absolute;
+  z-index: 5;
+  top: 18px;
+  left: 18px;
+  right: 18px;
+  max-height: 65%;
+  overflow: auto;
+  background: #3b2528;
+  border: 1px solid #d67a7a;
+  border-radius: 6px;
+  padding: 16px;
+  color: #ffe4e4;
+  box-shadow: 0 8px 24px #0006;
+}
+.open-error p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.open-error button {
+  background: #633b42;
+}

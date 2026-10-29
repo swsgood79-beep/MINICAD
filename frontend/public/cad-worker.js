@@ -21,8 +21,14 @@ async function initialize() {
       py.unpackArchive(await wheel.arrayBuffer(), "zip", {
         extractDir: py.runPython("import site; site.getsitepackages()[0]"),
       });
-      for (const file of ["cad_core.py", "browser_runtime.py"]) {
-        const r = await fetch(new URL(file, base));
+      for (const file of [
+        "cad_core.py",
+        "browser_runtime.py",
+        "dwg_database.py",
+      ]) {
+        const sourceURL = new URL(file, base);
+        sourceURL.search = self.location.search;
+        const r = await fetch(sourceURL);
         if (!r.ok) throw new Error("도면 엔진을 불러오지 못했습니다.");
         py.FS.writeFile("/home/pyodide/" + file, await r.text());
       }

@@ -31,6 +31,13 @@ def main():
             errors=[];requests=[]
             page.on('pageerror',lambda e:errors.append(str(e)))
             page.on('request',lambda r:requests.append((r.method,r.url)))
+            if os.getenv('MINICAD_TEST_DWG_FALLBACK')=='1':
+                def force_writer_trap(route):
+                    response=route.fetch()
+                    shim="""Object.defineProperty(globalThis,'onmessage',{configurable:true,set(handler){globalThis.addEventListener('message',event=>{if(event.data.mode==='dxf'){globalThis.postMessage({code:'WASM_TRAP',error:'memory access out of bounds'});}else handler(event);});}});
+"""
+                    route.fulfill(response=response,body=shim+response.text())
+                page.route('**/assets/dwg-reader.worker-*.js',force_writer_trap)
             page.goto(URL)
             source=ROOT/'tests/fixtures'/name
             before=hashlib.sha256(source.read_bytes()).hexdigest()
@@ -70,7 +77,7 @@ def main():
             assert frame.locator('canvas,button,nav').count()==0
             text=frame.locator('body').inner_text()
             assert name in text and 'R 20.000' in text and '실제 축척' in text
-            assert 'DWG 시험 읽기' in text
+            assert ('DWG 대체 읽기' if os.getenv('MINICAD_TEST_DWG_FALLBACK')=='1' else 'DWG 시험 읽기') in text
             # Verify the exact vector print document also produces a real PDF.
             printable=frame.locator('html').inner_html()
             pdf_page=browser.new_page()
@@ -91,6 +98,8 @@ def main():
             page.locator('input[type=file]').set_input_files({'name':'broken.dwg','mimeType':'application/octet-stream','buffer':b'not a DWG'})
             page.get_by_role('status').filter(has_text='DWG 열기 실패').wait_for()
             assert name in page.locator('.filename').inner_text()
+            assert page.get_by_role('alert').is_visible()
+            assert 'broken.dwg' in page.get_by_role('alert').inner_text()
             assert hashlib.sha256(source.read_bytes()).hexdigest()==before
             assert not errors,errors
             origin=urlsplit(URL).netloc

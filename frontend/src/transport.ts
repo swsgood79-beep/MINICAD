@@ -10,7 +10,12 @@ const pending = new Map<
 function getWorker() {
   if (!worker) {
     const base = new URL(import.meta.env.BASE_URL, document.baseURI);
-    worker = new Worker(new URL("cad-worker.js", base));
+    const workerURL = new URL("cad-worker.js", base);
+    workerURL.searchParams.set(
+      "v",
+      import.meta.env.VITE_CAD_REVISION ?? "dwg-fallback-1",
+    );
+    worker = new Worker(workerURL);
     worker.onmessage = ({ data }) => {
       const job = pending.get(data.id);
       if (!job) return;
@@ -64,23 +69,38 @@ export async function cadFetch(
   let bytes = file instanceof File ? await file.arrayBuffer() : undefined;
   const isDwg =
     file instanceof File && file.name.toLowerCase().endsWith(".dwg");
+  let database: unknown;
   if (isDwg) {
     try {
-      bytes = await readDwg(bytes!);
+      const decoded = await readDwg(bytes!);
+      bytes = decoded.file;
+      database = decoded.database;
     } catch (error) {
       return Response.json(
-        { detail: (error as Error).message },
+        {
+          detail:
+            ((error as Error).message.startsWith("DWG 열기 실패")
+              ? (error as Error).message
+              : "DWG 열기 실패: " + (error as Error).message) +
+            `\n파일: ${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MiB · 헤더 ${new TextDecoder("ascii").decode(await file.slice(0, 6).arrayBuffer())}`,
+        },
         { status: 422 },
       );
     }
   }
   const job = {
     id,
-    path: isDwg ? "/api/open-dwg" : url.pathname,
+    path: database
+      ? "/api/open-dwg-database"
+      : isDwg
+        ? "/api/open-dwg"
+        : url.pathname,
     documentId: url.searchParams.get("document_id"),
     filename: file instanceof File ? file.name : undefined,
     file: bytes,
-    body: typeof options.body === "string" ? JSON.parse(options.body) : {},
+    body:
+      database ??
+      (typeof options.body === "string" ? JSON.parse(options.body) : {}),
   };
   const w = getWorker();
   return new Promise<Response>((resolve, reject) => {

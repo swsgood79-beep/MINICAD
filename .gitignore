@@ -9,3 +9,5 @@ test-results/
 frontend/public/pyodide/
 frontend/public/cad_core.py
 frontend/public/browser_runtime.py
+
+frontend/public/dwg_database.py

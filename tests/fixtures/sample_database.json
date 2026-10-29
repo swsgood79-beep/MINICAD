@@ -1,0 +1,531 @@
+{
+  "header": {
+    "INSUNITS": 4
+  },
+  "entities": [
+    {
+      "type": "CIRCLE",
+      "handle": "8D",
+      "ownerDictionaryHardId": "0",
+      "ownerBlockRecordSoftId": "1F",
+      "layer": "Tavolo 1",
+      "colorIndex": 256,
+      "colorName": "",
+      "lineType": "",
+      "lineweight": 29,
+      "lineTypeScale": 1,
+      "isVisible": true,
+      "transparency": 0,
+      "transparencyType": 0,
+      "xdata": [],
+      "center": {
+        "x": 199.6812627452187,
+        "y": 24.695759123913035,
+        "z": 0
+      },
+      "radius": 20,
+      "extrusionDirection": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      }
+    },
+    {
+      "type": "TEXT",
+      "handle": "8E",
+      "ownerDictionaryHardId": "0",
+      "ownerBlockRecordSoftId": "1F",
+      "layer": "Tavolo 1",
+      "colorIndex": 256,
+      "colorName": "",
+      "lineType": "",
+      "lineweight": 29,
+      "lineTypeScale": 1,
+      "isVisible": true,
+      "transparency": 0,
+      "transparencyType": 0,
+      "xdata": [],
+      "text": "Jen teksto simpla, cxu ne?",
+      "thickness": 0,
+      "startPoint": {
+        "x": -50.31873725478131,
+        "y": 134.69575912391306
+      },
+      "endPoint": {
+        "x": 9.264596078552017,
+        "y": 136.36242579057972
+      },
+      "textHeight": 5,
+      "rotation": 0,
+      "xScale": 1,
+      "obliqueAngle": 0,
+      "styleName": "Standard",
+      "generationFlag": 0,
+      "halign": 4,
+      "valign": 0,
+      "extrusionDirection": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      }
+    },
+    {
+      "type": "LWPOLYLINE",
+      "handle": "8F",
+      "ownerDictionaryHardId": "0",
+      "ownerBlockRecordSoftId": "1F",
+      "layer": "Tavolo 1",
+      "colorIndex": 256,
+      "colorName": "",
+      "lineType": "",
+      "lineweight": 29,
+      "lineTypeScale": 1,
+      "isVisible": true,
+      "transparency": 0,
+      "transparencyType": 0,
+      "xdata": [],
+      "numberOfVertices": 4,
+      "flag": 512,
+      "constantWidth": 0,
+      "elevation": 0,
+      "thickness": 0,
+      "extrusionDirection": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "vertices": [
+        {
+          "id": 0,
+          "x": -50.3187372547813,
+          "y": -85.30424087608696,
+          "bulge": 0
+        },
+        {
+          "id": 1,
+          "x": 49.6812627452187,
+          "y": -85.30424087608696,
+          "bulge": 0
+        },
+        {
+          "id": 2,
+          "x": 49.6812627452187,
+          "y": 54.69575912391305,
+          "bulge": 0
+        },
+        {
+          "id": 3,
+          "x": -50.3187372547813,
+          "y": 54.69575912391305,
+          "bulge": 0
+        }
+      ]
+    },
+    {
+      "type": "LINE",
+      "handle": "90",
+      "ownerDictionaryHardId": "0",
+      "ownerBlockRecordSoftId": "1F",
+      "layer": "Tavolo 1",
+      "colorIndex": 3,
+      "colorName": "",
+      "lineType": "",
+      "lineweight": 29,
+      "lineTypeScale": 1.2008,
+      "isVisible": true,
+      "transparency": 0,
+      "transparencyType": 0,
+      "xdata": [],
+      "startPoint": {
+        "x": 99.6812627452187,
+        "y": 94.69575912391304,
+        "z": 0
+      },
+      "endPoint": {
+        "x": 199.6812627452187,
+        "y": 94.69575912391304,
+        "z": 0
+      },
+      "extrusionDirection": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      }
+    },
+    {
+      "type": "LINE",
+      "handle": "91",
+      "ownerDictionaryHardId": "0",
+      "ownerBlockRecordSoftId": "1F",
+      "layer": "0",
+      "colorIndex": 256,
+      "colorName": "",
+      "lineType": "",
+      "lineweight": 29,
+      "lineTypeScale": 1,
+      "isVisible": true,
+      "transparency": 0,
+      "transparencyType": 0,
+      "xdata": [],
+      "startPoint": {
+        "x": 199.6812627452187,
+        "y": 194.69575912391304,
+        "z": 0
+      },
+      "endPoint": {
+        "x": 199.6812627452187,
+        "y": 94.69575912391304,
+        "z": 0
+      },
+      "extrusionDirection": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      }
+    },
+    {
+      "type": "LINE",
+      "handle": "92",
+      "ownerDictionaryHardId": "0",
+      "ownerBlockRecordSoftId": "1F",
+      "layer": "0",
+      "colorIndex": 256,
+      "colorName": "",
+      "lineType": "",
+      "lineweight": 29,
+      "lineTypeScale": 1,
+      "isVisible": true,
+      "transparency": 0,
+      "transparencyType": 0,
+      "xdata": [],
+      "startPoint": {
+        "x": 99.6812627452187,
+        "y": 94.69575912391304,
+        "z": 0
+      },
+      "endPoint": {
+        "x": 199.6812627452187,
+        "y": 194.69575912391304,
+        "z": 0
+      },
+      "extrusionDirection": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      }
+    }
+  ],
+  "tables": {
+    "LAYER": {
+      "entries": [
+        {
+          "handle": "10",
+          "ownerHandle": "2",
+          "name": "0",
+          "standardFlag": 16,
+          "colorIndex": 7,
+          "color": 16777215,
+          "colorName": "",
+          "transparency": 0,
+          "lineType": "Continuous",
+          "frozen": false,
+          "off": false,
+          "frozenInNew": false,
+          "locked": false,
+          "plotFlag": 1,
+          "lineweight": 31,
+          "plotStyleNameObjectId": "",
+          "materialObjectId": ""
+        },
+        {
+          "handle": "81",
+          "ownerHandle": "2",
+          "name": "Tavolo 1",
+          "standardFlag": 16,
+          "colorIndex": 2,
+          "color": 16777215,
+          "colorName": "",
+          "transparency": 0,
+          "lineType": "Continuous",
+          "frozen": false,
+          "off": false,
+          "frozenInNew": false,
+          "locked": false,
+          "plotFlag": 1,
+          "lineweight": 31,
+          "plotStyleNameObjectId": "",
+          "materialObjectId": ""
+        }
+      ]
+    },
+    "BLOCK_RECORD": {
+      "entries": [
+        {
+          "handle": "1F",
+          "ownerHandle": "1",
+          "name": "*Model_Space",
+          "flags": 64,
+          "description": "",
+          "basePoint": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "layout": "22",
+          "insertionUnits": 0,
+          "explodability": 1,
+          "scalability": 0,
+          "entities": [
+            {
+              "type": "CIRCLE",
+              "handle": "8D",
+              "ownerDictionaryHardId": "0",
+              "ownerBlockRecordSoftId": "1F",
+              "layer": "Tavolo 1",
+              "colorIndex": 256,
+              "colorName": "",
+              "lineType": "",
+              "lineweight": 29,
+              "lineTypeScale": 1,
+              "isVisible": true,
+              "transparency": 0,
+              "transparencyType": 0,
+              "xdata": [],
+              "center": {
+                "x": 199.6812627452187,
+                "y": 24.695759123913035,
+                "z": 0
+              },
+              "radius": 20,
+              "extrusionDirection": {
+                "x": 0,
+                "y": 0,
+                "z": 1
+              }
+            },
+            {
+              "type": "TEXT",
+              "handle": "8E",
+              "ownerDictionaryHardId": "0",
+              "ownerBlockRecordSoftId": "1F",
+              "layer": "Tavolo 1",
+              "colorIndex": 256,
+              "colorName": "",
+              "lineType": "",
+              "lineweight": 29,
+              "lineTypeScale": 1,
+              "isVisible": true,
+              "transparency": 0,
+              "transparencyType": 0,
+              "xdata": [],
+              "text": "Jen teksto simpla, cxu ne?",
+              "thickness": 0,
+              "startPoint": {
+                "x": -50.31873725478131,
+                "y": 134.69575912391306
+              },
+              "endPoint": {
+                "x": 9.264596078552017,
+                "y": 136.36242579057972
+              },
+              "textHeight": 5,
+              "rotation": 0,
+              "xScale": 1,
+              "obliqueAngle": 0,
+              "styleName": "Standard",
+              "generationFlag": 0,
+              "halign": 4,
+              "valign": 0,
+              "extrusionDirection": {
+                "x": 0,
+                "y": 0,
+                "z": 1
+              }
+            },
+            {
+              "type": "LWPOLYLINE",
+              "handle": "8F",
+              "ownerDictionaryHardId": "0",
+              "ownerBlockRecordSoftId": "1F",
+              "layer": "Tavolo 1",
+              "colorIndex": 256,
+              "colorName": "",
+              "lineType": "",
+              "lineweight": 29,
+              "lineTypeScale": 1,
+              "isVisible": true,
+              "transparency": 0,
+              "transparencyType": 0,
+              "xdata": [],
+              "numberOfVertices": 4,
+              "flag": 512,
+              "constantWidth": 0,
+              "elevation": 0,
+              "thickness": 0,
+              "extrusionDirection": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "vertices": [
+                {
+                  "id": 0,
+                  "x": -50.3187372547813,
+                  "y": -85.30424087608696,
+                  "bulge": 0
+                },
+                {
+                  "id": 1,
+                  "x": 49.6812627452187,
+                  "y": -85.30424087608696,
+                  "bulge": 0
+                },
+                {
+                  "id": 2,
+                  "x": 49.6812627452187,
+                  "y": 54.69575912391305,
+                  "bulge": 0
+                },
+                {
+                  "id": 3,
+                  "x": -50.3187372547813,
+                  "y": 54.69575912391305,
+                  "bulge": 0
+                }
+              ]
+            },
+            {
+              "type": "LINE",
+              "handle": "90",
+              "ownerDictionaryHardId": "0",
+              "ownerBlockRecordSoftId": "1F",
+              "layer": "Tavolo 1",
+              "colorIndex": 3,
+              "colorName": "",
+              "lineType": "",
+              "lineweight": 29,
+              "lineTypeScale": 1.2008,
+              "isVisible": true,
+              "transparency": 0,
+              "transparencyType": 0,
+              "xdata": [],
+              "startPoint": {
+                "x": 99.6812627452187,
+                "y": 94.69575912391304,
+                "z": 0
+              },
+              "endPoint": {
+                "x": 199.6812627452187,
+                "y": 94.69575912391304,
+                "z": 0
+              },
+              "extrusionDirection": {
+                "x": 0,
+                "y": 0,
+                "z": 1
+              }
+            },
+            {
+              "type": "LINE",
+              "handle": "91",
+              "ownerDictionaryHardId": "0",
+              "ownerBlockRecordSoftId": "1F",
+              "layer": "0",
+              "colorIndex": 256,
+              "colorName": "",
+              "lineType": "",
+              "lineweight": 29,
+              "lineTypeScale": 1,
+              "isVisible": true,
+              "transparency": 0,
+              "transparencyType": 0,
+              "xdata": [],
+              "startPoint": {
+                "x": 199.6812627452187,
+                "y": 194.69575912391304,
+                "z": 0
+              },
+              "endPoint": {
+                "x": 199.6812627452187,
+                "y": 94.69575912391304,
+                "z": 0
+              },
+              "extrusionDirection": {
+                "x": 0,
+                "y": 0,
+                "z": 1
+              }
+            },
+            {
+              "type": "LINE",
+              "handle": "92",
+              "ownerDictionaryHardId": "0",
+              "ownerBlockRecordSoftId": "1F",
+              "layer": "0",
+              "colorIndex": 256,
+              "colorName": "",
+              "lineType": "",
+              "lineweight": 29,
+              "lineTypeScale": 1,
+              "isVisible": true,
+              "transparency": 0,
+              "transparencyType": 0,
+              "xdata": [],
+              "startPoint": {
+                "x": 99.6812627452187,
+                "y": 94.69575912391304,
+                "z": 0
+              },
+              "endPoint": {
+                "x": 199.6812627452187,
+                "y": 194.69575912391304,
+                "z": 0
+              },
+              "extrusionDirection": {
+                "x": 0,
+                "y": 0,
+                "z": 1
+              }
+            }
+          ]
+        },
+        {
+          "handle": "50",
+          "ownerHandle": "1",
+          "name": "*Paper_Space",
+          "flags": 64,
+          "description": "",
+          "basePoint": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "layout": "51",
+          "insertionUnits": 0,
+          "explodability": 1,
+          "scalability": 0,
+          "entities": []
+        },
+        {
+          "handle": "55",
+          "ownerHandle": "1",
+          "name": "*Paper_Space0",
+          "flags": 64,
+          "description": "",
+          "basePoint": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "layout": "56",
+          "insertionUnits": 0,
+          "explodability": 1,
+          "scalability": 0,
+          "entities": []
+        }
+      ]
+    }
+  },
+  "decoderErrors": 0,
+  "unknownEntityCount": 0
+}

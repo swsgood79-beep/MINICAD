@@ -75,6 +75,7 @@ const modes = [
   ["copy", "객체 복사"],
 ] as const;
 function App() {
+  const [openError, setOpenError] = useState<string | null>(null);
   const [drawing, setDrawing] = useState<Drawing | null>(null),
     [docId, setDocId] = useState(""),
     [mode, setMode] = useState("select"),
@@ -337,9 +338,16 @@ function App() {
     await run(async () => {
       const data = new FormData();
       data.append("file", file);
-      const r = await response(
-        await cadFetch("/api/open", { method: "POST", body: data }),
-      );
+      setOpenError(null);
+      let r: Response;
+      try {
+        r = await response(
+          await cadFetch("/api/open", { method: "POST", body: data }),
+        );
+      } catch (error) {
+        setOpenError((error as Error).message);
+        throw error;
+      }
       const d: Drawing = await r.json();
       if (docId)
         await cadFetch(endpoint("/api/document"), { method: "DELETE" });
@@ -637,6 +645,17 @@ function App() {
           </small>
         </nav>
         <div className="stage" ref={stage}>
+          {openError && (
+            <div className="open-error" role="alert">
+              <strong>도면을 열지 못했습니다</strong>
+              <p>{openError}</p>
+              <p>
+                열려 있던 도면은 그대로 유지됩니다. 다른 파일로 시험하거나, 문제
+                파일을 지원 담당자에게 별도로 전달해 주세요.
+              </p>
+              <button onClick={() => setOpenError(null)}>닫기</button>
+            </div>
+          )}
           <canvas
             aria-label="CAD 도면 작업 영역"
             ref={canvas}

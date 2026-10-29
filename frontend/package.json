@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "test": "tsx --test src/geometry.test.ts src/printing.test.ts",
+    "test": "tsx --test src/geometry.test.ts src/printing.test.ts src/dwg-retry.test.ts",
     "build:pages": "tsc --noEmit && vite build --mode pages --base=./"
   },
   "dependencies": {

@@ -24,6 +24,18 @@
 
 DWG Worker는 GPL-3.0 계열 라이브러리 `@mlightcad/libredwg-web` 0.8.2를 사용합니다. 별도 Worker 코드에 SPDX 표기를 두고, 웹 화면의 **오픈소스** 링크에서 GPL 전문과 정확한 대응 소스/빌드 방법을 제공합니다. upstream WASM은 수정하지 않았습니다. 참조: `frontend/public/third-party/`. 원래 ODA 서버 경로는 선택 기능으로 유지합니다.
 
+## DWG 내부 메모리 오류 복구
+
+`memory access out of bounds`는 WebAssembly 해석기 내부 접근 오류이며, 파일 손상이나 PC 메모리 부족으로 단정할 수 없습니다. 일반 내부 DXF 변환 경로가 실패하면 **실패한 Worker를 종료하고 새 Worker에서 직접 DWG 데이터 API로 한 번만 재시도**합니다. 같은 실패 상태의 해석기 인스턴스를 재사용하지 않습니다. 각 시도는 시간 제한이 있고, 잘못된 파일 헤더는 재시도하지 않습니다.
+
+대체 읽기는 지원되는 선·원·호·2D 폴리라인·문자·기본 블록/치수만 화면 문서로 구성합니다. 미지원 객체와 해석기 경고는 개수/주의 문구로 알리며 원본 전체를 보존했다고 주장하지 않습니다. DWG 유래 파일 저장은 계속 금지됩니다. upstream API의 레이어 잠금 필드 오타는 원시 `locked` 비트를 핸들로 대조해 보정하며, LWPOLYLINE의 DWG 내부 닫힘 비트(512)를 DXF 닫힘 상태로 변환합니다.
+
+두 경로 모두 실패하면 화면 상단에 오류와 파일 이름·크기·DWG 헤더를 표시하고 기존 도면을 유지합니다. 앱이나 실패 파일이 외부로 자동 전송되지는 않습니다. 실제 고객 파일의 호환성 확인에는 해당 파일 또는 비식별 재현 표본이 필요합니다. 이 보완이 모든 DWG 메모리 오류를 해결한다고 보장하지 않습니다.
+
+검증: 표준 경로에 WASM 오류를 **강제로 주입**하고 실제 DWG 2000·2018 표본이 대체 경로로 열리는지, 100 mm 거리/R20 원/이동·실행 취소/인쇄·한 페이지 PDF/원본 보존을 검사합니다. 실행: `MINICAD_TEST_DWG_FALLBACK=1 MINICAD_TEST_URL=<정적 테스트 주소> python tests/dwg_browser_smoke.py`. 이는 고객 파일에서 보고된 오류의 원인을 재현한 테스트와 구분됩니다. Python 회귀는 25개, TypeScript 회귀는 20개입니다.
+
+배포 시 Git 커밋을 엔진 URL과 Python 소스 URL의 버전 키로 사용해, 이전 캐시의 파일 일부가 새 코드와 섞이지 않게 합니다.
+
 ## GitHub Pages 배포
 
 `.github/workflows/pages.yml`이 `main` 변경 시 정적 웹 빌드와 배포를 실행합니다. GitHub 저장소에서 **Settings → Pages → Build and deployment → Source → GitHub Actions**를 최초 한 번 선택해야 할 수 있습니다. 이후 **Actions → Deploy MiniCAD to GitHub Pages → Run workflow**를 실행하면 됩니다. 성공한 배포의 실제 주소는 Actions 결과와 Pages 설정에 표시됩니다. 무료 GitHub Pages는 공개 저장소 기준이며, 비공개 저장소는 계정 플랜에 따릅니다. 이 작업은 저장소 공개 범위를 변경하지 않습니다.

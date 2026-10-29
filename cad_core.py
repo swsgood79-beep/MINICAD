@@ -21,6 +21,8 @@ class Drawing:
     redo: list = field(default_factory=list)
     revision: int = 0
     source_format: str = 'dxf'
+    import_unsupported: dict = field(default_factory=dict)
+    unrendered_roots: int = 0
 
 def planar(e):
     if e.dxftype() == 'POLYLINE' and not e.is_2d_polyline:
@@ -75,7 +77,7 @@ def primitive(e, depth=0, ancestors=()):
     return item
 
 def serialize(s: Drawing):
-    entities, unsupported = [], {}
+    entities, unsupported = [], dict(s.import_unsupported)
     truncated = False
     for i, e in enumerate(s.doc.modelspace()):
         if i >= 120000:
@@ -94,10 +96,10 @@ def serialize(s: Drawing):
             unsupported[k] = unsupported.get(k, 0)+1
     warnings = list(s.warnings)
     if unsupported:
-        warnings.append('미표시 객체는 원본 DXF 문서에 유지됩니다. 화면만으로 도면 전체를 판단하지 마세요.')
+        warnings.append('DWG 미지원 객체가 화면에서 생략되었습니다. 화면만으로 원본 전체를 판단하지 마세요. 원본 DWG 파일은 변경하지 않습니다.' if s.source_format=='dwg' else '미표시 객체는 원본 DXF 문서에 유지됩니다. 화면만으로 도면 전체를 판단하지 마세요.')
     if truncated:
         warnings.append('화면 표시 한도 120,000개를 초과했습니다. 나머지 객체도 문서에는 보존됩니다.')
-    return dict(entities=entities, unsupported=unsupported, total=len(s.doc.modelspace()), units=int(s.doc.units),
+    return dict(entities=entities, unsupported=unsupported, total=len(s.doc.modelspace())+s.unrendered_roots, units=int(s.doc.units),
                 filename=s.name, source_format=s.source_format, layers=[{'name':l.dxf.name,'visible':not l.is_off() and not l.is_frozen(),'locked':l.is_locked()} for l in s.doc.layers],
                 warnings=warnings, truncated=truncated, revision=s.revision, can_undo=bool(s.undo), can_redo=bool(s.redo))
 

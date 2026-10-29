@@ -30,6 +30,7 @@ jobs:
         working-directory: frontend
         env:
           VITE_CAD_MODE: browser
+          VITE_CAD_REVISION: ${{ github.sha }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
