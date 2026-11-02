@@ -7,3 +7,7 @@ The uploaded .z01, .z02 and .zip volumes were combined. Filename encoding metada
 The package contains MiniCAD.exe, its runtime, bundled DWG engine, compiled frontend, licenses and instructions. It does not contain the editable application source. The release tag records archival metadata, not a reproducible v0.3.12 source tree. Existing web sources are not the Windows v0.3.12 baseline.
 
 Future updates must preserve this release, use a new Windows version, and include a ZIP and checksum in GitHub Releases and download links in chat. Obtain matching source before rebuilding; do not replace the packaged UI with the older web frontend.
+
+## v0.3.13
+
+Adds Ctrl+F search through an additive extension to the verified v0.3.12 compiled frontend. The original Windows executable and backend remain unchanged. Patch source, exact-baseline builder, browser check and limitations are in windows-patches/text-search. The full ZIP and checksum are in releases/windows/v0.3.13. Release download links use immutable version tags.
