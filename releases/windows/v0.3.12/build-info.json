@@ -1,0 +1,53 @@
+{
+  "created_utc": "2026-10-31T06:18:50.293348+00:00",
+  "target": "Windows 10/11 x64",
+  "exe_sha256": "18c26fa92a15f8e48ec848a55404e260c09e15688823bd1c2eef4b42e0e411ce",
+  "frontend_sha256": {
+    "assets/index-BFs8Am1P.css": "a95e1160693dbefcd8dfea7921d85a899154ae457a9af5644fb9bc640a5e1265",
+    "assets/index-DJISSrak.js": "79334103bf4b0400c688c0a7e730840138b2dec25f4200d7238767b3645ac7bf",
+    "index.html": "ce88b6621157caf61e0a2d477fc0207e7446dec19dbc95e12b084f4103f495a6"
+  },
+  "source_sha256": {
+    "desktop_app.py": "12f0ae4517384fa1a83598e81c2cba5c727466daad2e691e786789c7f29d106d",
+    "desktop_services.py": "44a690860b56b54ab9e6339fe883e9d79ea703dc8958c34d6136db1947f03399",
+    "desktop_view_cache.py": "2c0b6b6bcebde9c10948cdc67eeef6b1c6c6f872ce232a0b6a0d6eb63266d3f9",
+    "desktop_dxf_view.py": "267c14d40f036f4b3e938965cd902e4743612dd9c1359756a5bd019f4884010c",
+    "scene_json.py": "fb0c6ee5fb9ab685526860ca00894ab6449fc1a6fa2a6d7518b11766840bfce7",
+    "native_edits.py": "6843878269e874b66992e0da93b8d554822afd90becf0da9fb352c3efc7be865",
+    "server.py": "c9be442a69bfbf671e45f1f5fadc9fb3682c7be045bb66588c20c9241dd0259b",
+    "cad_core.py": "c0f612cea7f68acb5b77fe668524a4c9f368896ecd4d954f14be1a6b68148f55",
+    "MiniCAD.spec": "6fd70aaca440e16baf18495d31ba1f6ecbccc0fec3820541af89feb6cb229b15"
+  },
+  "engine_validation": {
+    "ok": true,
+    "checks": [
+      "authentication",
+      "packaged-ui",
+      "native-dxf",
+      "edit",
+      "undo",
+      "open-progress",
+      "block-explode",
+      "targeted-delete",
+      "text-delete",
+      "block-undo-redo",
+      "line-offset",
+      "display-view-reader",
+      "native-json",
+      "lazy-native-view",
+      "incremental-delete-undo",
+      "prepared-view-cache",
+      "bundled-dwg",
+      "100mm-line",
+      "20mm-radius",
+      "dwg-cache",
+      "dwg-edit-undo",
+      "dwg-save-blocked"
+    ]
+  },
+  "validation_platform": "Windows x64 EXE under Wine 10; Chromium drawing-only landscape/portrait window PDFs with default headers enabled, exact text and pixel clipping; physical Windows WebView2 and printer not verified",
+  "dwg_engine": "GNU LibreDWG 0.14 (bundled, separate CLI)",
+  "requires_oda": false,
+  "webview2_on_windows_pc": "Not verified; test the native window on the target Windows PC.",
+  "published": false
+}
