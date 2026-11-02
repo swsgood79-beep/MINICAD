@@ -1,6 +1,6 @@
 # Windows releases
 
-The baseline is the user-supplied MiniCAD-Windows-x64-v0.3.12 package. The `v0.3.12` GitHub Release stores the complete single-volume ZIP and its SHA-256 checksum.
+The baseline is the user-supplied MiniCAD-Windows-x64-v0.3.12 package. The complete single-volume ZIP and its SHA-256 checksum are tracked on the windows-v0.3.12-baseline branch under releases/windows/v0.3.12. The v0.3.12 GitHub Release links to them. Release-asset upload failed with HTTP 401; repository upload is available.
 
 The uploaded .z01, .z02 and .zip volumes were combined. Filename encoding metadata was normalized when repacking; all file contents passed CRC verification. The executable and frontend SHA-256 values match the supplied build-info.json. This verification does not establish native Windows runtime behavior.
 
