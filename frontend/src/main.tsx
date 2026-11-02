@@ -18,6 +18,7 @@ import {
   angle,
 } from "./geometry";
 import "./style.css";
+import { findText } from "./text-search";
 import { printDrawing } from "./printing";
 import { buildScene, paintScene } from "./scene-renderer";
 import { browserMode, cadFetch } from "./transport";
@@ -101,6 +102,10 @@ function App() {
     [busy, setBusy] = useState(false),
     [oda, setOda] = useState(false),
     [dirty, setDirty] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchIndex, setSearchIndex] = useState(0);
+  const searchInput = useRef<HTMLInputElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null),
     stage = useRef<HTMLDivElement>(null),
     drag = useRef<{ point: Point; view: View } | null>(null),
@@ -113,6 +118,26 @@ function App() {
     () => buildScene(visible, drawing?.layers ?? [], selected),
     [visible, drawing?.layers, selected],
   );
+  const searchResults = useMemo(() => findText(visible, searchQuery), [visible, searchQuery]);
+  useEffect(() => { setSearchIndex(0); }, [searchResults]);
+  useEffect(() => {
+    if (searchOpen) {
+      searchInput.current?.focus();
+      searchInput.current?.select();
+    }
+  }, [searchOpen]);
+  useEffect(() => {
+    const match = searchResults[searchIndex];
+    if (!searchOpen || !match) return;
+    setSelected([match.ownerId]);
+    // Leave enough context around the matched text to recognize its location.
+    setView(fit([match.entity], size[0] * 0.6, size[1] * 0.6));
+    setView(v => ({ ...v, x: v.x + size[0] * 0.2, y: v.y + size[1] * 0.2 }));
+  }, [searchOpen, searchResults, searchIndex, size]);
+  function moveSearch(direction: number) {
+    if (searchResults.length)
+      setSearchIndex(i => (i + direction + searchResults.length) % searchResults.length);
+  }
   const baseCanvas = useRef<HTMLCanvasElement | null>(null);
   const fmt = (n: number) => n.toFixed(digits),
     unit = unitNames[drawing?.units ?? 0] ?? `단위 코드 ${drawing?.units}`;
@@ -272,6 +297,18 @@ function App() {
   }
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setSearchOpen(true);
+        searchInput.current?.focus();
+        searchInput.current?.select();
+        return;
+      }
+      if (searchOpen && e.key === "Escape") {
+        e.preventDefault();
+        setSearchOpen(false);
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p" && drawing) {
         e.preventDefault();
         if (!busy) requestPrint();
@@ -638,10 +675,30 @@ function App() {
             <br />
             Esc: 취소
             <br />
+            Ctrl+F: 문자 검색
+            <br />
             Ctrl+Z / Ctrl+Y
           </small>
         </nav>
         <div className="stage" ref={stage}>
+          {searchOpen && (
+            <form className="text-search" role="search" aria-label="도면 문자 검색"
+              onSubmit={e => { e.preventDefault(); moveSearch(1); }}>
+              <input ref={searchInput} aria-label="검색할 단어" placeholder="도면에서 단어 찾기"
+                value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSearchIndex(0); }}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                    e.preventDefault(); moveSearch(e.shiftKey ? -1 : 1);
+                  }
+                }} />
+              <span role="status" aria-live="polite">{searchQuery.trim()
+                ? searchResults.length ? `${Math.min(searchIndex + 1, searchResults.length)} / ${searchResults.length}` : "검색 결과 없음"
+                : "단어를 입력하세요"}</span>
+              <button type="button" disabled={!searchResults.length} onClick={() => moveSearch(-1)} aria-label="이전 결과">↑</button>
+              <button type="button" disabled={!searchResults.length} onClick={() => moveSearch(1)} aria-label="다음 결과">↓</button>
+              <button type="button" onClick={() => setSearchOpen(false)} aria-label="검색 닫기">✕</button>
+            </form>
+          )}
           {drawing?.preview && (
             <div className="preview-banner">
               부분 미리보기 · 도면 일부만 표시합니다. 표시된 범위만 측정할 수
